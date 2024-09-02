@@ -97,17 +97,67 @@ def handle_message(data):
     # else:
     #     print("Unknown message type received")
 
-# def handle_chat(data):
-    # Must determine whether this message came from a client
-    # or server
-    # 
-    # From client: 
-    # - Validate format of message
-    # - Forward to each of the destination servers
-    # 
-    # From server:
-    # - Validate format of message
-    # - Forward to all client connections
+
+# Detirmine source of message
+def handle_chat(data):
+    # Get the session ID of the sender
+    sid = request.sid
+
+    # Determine if the message came from a client or another sender
+    if sid in client_list:
+        # Message came from a client
+        handle_chat_from_client(data, sid)
+
+    else:
+        # Message came from another sender
+        handle_chat_from_server(data)
+
+# Handle messages from clients
+def handle_chat_from_client(data, sid):
+    # Validate the message format, ensure all necessary fields are present
+    if not validate_chat_message(data):
+        print(f"Invalid chat message recieved from client {sid}")
+        return
+    
+    # Extract the list of destination servers
+    destination_servers = data['data']['destination_servers']
+
+    # Forward the message to each destination server
+    for server in destination_servers:
+        forward_message_to_server(data, server)
+
+# Handle messages from other servers
+def handle_chat_from_server(data):
+    # Validate message format, ensure necessary fields are present
+    if not validate_chat_message(data):
+        print("Invalid chat message recieved from server")
+        return
+    # Forward the message to all connected clients
+    forward_message_to_all_clients(data)
+
+# Validate chat message, function checks that the chat message contains all necessary fields
+def validate_chat_message(data):
+    required_fields = ['type', 'data', 'counter', 'signature']
+    for field in required_fields:
+        if field not in data:
+            return False
+        
+        # Additional checks could be added here if needed later
+        return True
+    
+# Forward message to server    
+def forward_message_to_server(data, server_address):
+    # Assuming there is anotehr function somewhere to send data to another server
+    send_to_server(server_address, data)
+
+# Forward message to all clients
+def forward_message_to_all_clients(data):
+    for client_sid in client_list.keys():
+        socketio.emit('chat', data, room=client_sid)
+
+
+
+
 
 # def handle_client_update_request(data):
     # These messages are received from connected servers when
