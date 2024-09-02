@@ -98,7 +98,7 @@ def handle_message(data):
     #     print("Unknown message type received")
 
 
-# Detirmine source of message
+# Determine source of message
 def handle_chat(data):
     # Get the session ID of the sender
     sid = request.sid
@@ -156,17 +156,28 @@ def forward_message_to_all_clients(data):
         socketio.emit('chat', data, room=client_sid)
 
 
+def handle_client_update_request(data):
+    # Get the session ID of the requesting server
+    sid = request.sid
+    print(f"Client update request recieved from server {sid}")
 
+    # Prepare the client_update message
+    client_update_msg = {
+        "type": "client_update",
+        "clients": [pem_to_base64_key(client_list[sid]) for sid in client_list.keys()]
+    }
 
+    # Send the client_update message back to the requesting server
+    socketio.emit('client_update', client_update_msg, room=sid)
+    print(f"Sent client update to server {sid}")
 
-# def handle_client_update_request(data):
-    # These messages are received from connected servers when
-    # they have either:
-    # 1 - Just joined the network
-    # 2 - Are re-joining following a crash
-    # 
-    # This method should respond by sending a 'client_update'
-    # message containing a list of it's connected server's pub-keys
+# pem_to_base64_key utility function
+def pem_to_base64_key(pem_key):
+    return base64.b64encode(pem_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )).decode('utf-8')
+
 
 # def handle_client_update(data):
     # These messages are received from connected servers when
