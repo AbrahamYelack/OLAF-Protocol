@@ -219,17 +219,86 @@ def base64_to_pem(base64_key):
     )
 
 
-# def handle_public_chat(data):
-    # Must determine whether this message came from a client
-    # or server
-    # 
-    # From client: 
-    # - Validate format of message
-    # - Forward to ALL connected servers and clients
-    # 
-    # From server:
-    # - Validate format of message
-    # - Forward to all connected clients
+def handle_public_chat(data):
+    # Get the session ID of the sender
+    sid = request.sid
+
+    # Detirmine if the message came from a client or another server
+    if sid in client_list:
+        # Message came from a client
+        handle_public_chat(data, sid)
+
+    else:
+        # Message came from another server
+        handle_chat_from_server(data)
+
+# Handle public chat from client
+def handle_public_chat_from_client(data, sid):
+    # Validate message format
+    if not validate_public_chat_message(data):
+        print(f"Invalid public chat message recieved from client {sid}")
+        return
+    
+    # Forward the message to all connected servers
+    forward_message_to_all_servers(data)
+
+    # Forward the message to all connected clients
+    forward_message_to_all_clients(data)
+    print(f"Public chat message from client {sid} forwarded to all servers and clients")
+
+# Handle public chat from server
+def handle_public_chat_from_server(data):
+    # Validate the message format
+    if not validate_public_chat_message(data):
+        print("Invalid public chat message received from server")
+        return
+
+    # Forward the message to all connected clients
+    forward_message_to_all_clients(data)
+    print("Public chat message from server forwarded to all clients")
+
+# Validate public chat message
+def validate_public_chat_message(data):
+    required_fields = ['type', 'sender', 'message']
+    for field in required_fields:
+        if field not in data['data']:
+            return False
+        
+        # Can add more checks if needed
+        return True
+
+# Forward message to all servers
+def forward_message_to_all_servers(data):
+    for server in user_list['servers']:
+        send_to_server(server, data)
+
+# Forward message to all clients
+def forward_message_to_all_clients(data):
+    for client_sid in client_list.keys():
+        socketio.emit('public_chat', data, room=client_sid)
+
+
+
+# Send to server function 
+# (i dont know if this is right, i noticed we dont have this but needed this function for the previous handler)
+def send_to_server(server_info, data):
+    try:
+        # Construct the server's URL
+        server_url = f"http://{server_info['address']}:{server_info.get('port', 80)}/api/receive_message"
+
+        # Send the data as a POST request
+        response = requests.post(server_url, json=data)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            print(f"Successfully sent data to server {server_info['address']}")
+        else:
+            print(f"Failed to send data to server {server_info['address']} - Status Code: {response.status_code}")
+
+    except Exception as e:
+        print(f"Error sending data to server {server_info['address']}: {e}")
+
+
 
 # Utility to parse raw data and cas UTF-8 JSON
 def process_data(data):
