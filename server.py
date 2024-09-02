@@ -179,13 +179,45 @@ def pem_to_base64_key(pem_key):
     )).decode('utf-8')
 
 
-# def handle_client_update(data):
-    # These messages are received from connected servers when
-    # changes have occured to their client list. Or in response
-    # to a 'client_update_request'
+def handle_client_update(data):
+    print("Received client update from another server")
 
-    # This method should update the user_list object in 
-    # accordance with the data
+    # Extract list of clients from the incoming data
+    updated_clients = data.get('clients', [])
+
+    # Go through each updated client and update the user_list
+    for client_pem in updated_clients:
+        # Convert the base64 encoded client key back to PEM format
+        client_key = base64_to_pem(client_pem)
+
+        # Check if the client is already in the user_list
+        client_exists = any(
+            client_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            ) == key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            for key in client_list.values()
+        )
+
+        # If the client isn't in the user_list, add it
+        if not client_exists:
+            # Assuming that the update contains the correct server address
+            server_address = data.get('address', 'unknown')
+            user_list[client_pem] = server_address
+            print(f"Added new client to user_list with address {server_address}")
+
+    print("User list updated successfully")
+
+# Utility function to convert base64 to pem
+def base64_to_pem(base64_key):
+    return serialization.load_pem_public_key(
+        base64.b64decode(base64_key.encode('utf-8')),
+        backend=default_backend()
+    )
+
 
 # def handle_public_chat(data):
     # Must determine whether this message came from a client
