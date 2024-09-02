@@ -97,26 +97,87 @@ def handle_message(data):
     # else:
     #     print("Unknown message type received")
 
-# def handle_chat(data):
-    # Must determine whether this message came from a client
-    # or server
-    # 
-    # From client: 
-    # - Validate format of message
-    # - Forward to each of the destination servers
-    # 
-    # From server:
-    # - Validate format of message
-    # - Forward to all client connections
 
-# def handle_client_update_request(data):
-    # These messages are received from connected servers when
-    # they have either:
-    # 1 - Just joined the network
-    # 2 - Are re-joining following a crash
-    # 
-    # This method should respond by sending a 'client_update'
-    # message containing a list of it's connected server's pub-keys
+# Determine source of message
+def handle_chat(data):
+    # Get the session ID of the sender
+    sid = request.sid
+
+    # Determine if the message came from a client or another sender
+    if sid in client_list:
+        # Message came from a client
+        handle_chat_from_client(data, sid)
+
+    else:
+        # Message came from another sender
+        handle_chat_from_server(data)
+
+# Handle messages from clients
+def handle_chat_from_client(data, sid):
+    # Validate the message format, ensure all necessary fields are present
+    if not validate_chat_message(data):
+        print(f"Invalid chat message recieved from client {sid}")
+        return
+    
+    # Extract the list of destination servers
+    destination_servers = data['data']['destination_servers']
+
+    # Forward the message to each destination server
+    for server in destination_servers:
+        forward_message_to_server(data, server)
+
+# Handle messages from other servers
+def handle_chat_from_server(data):
+    # Validate message format, ensure necessary fields are present
+    if not validate_chat_message(data):
+        print("Invalid chat message recieved from server")
+        return
+    # Forward the message to all connected clients
+    forward_message_to_all_clients(data)
+
+# Validate chat message, function checks that the chat message contains all necessary fields
+def validate_chat_message(data):
+    required_fields = ['type', 'data', 'counter', 'signature']
+    for field in required_fields:
+        if field not in data:
+            return False
+        
+        # Additional checks could be added here if needed later
+        return True
+    
+# Forward message to server    
+def forward_message_to_server(data, server_address):
+    # Assuming there is anotehr function somewhere to send data to another server
+    send_to_server(server_address, data)
+
+# Forward message to all clients
+def forward_message_to_all_clients(data):
+    for client_sid in client_list.keys():
+        socketio.emit('chat', data, room=client_sid)
+
+
+def handle_client_update_request(data):
+    # Get the session ID of the requesting server
+    sid = request.sid
+    print(f"Client update request recieved from server {sid}")
+
+    # Prepare the client_update message
+    client_update_msg = {
+        "type": "client_update",
+        "clients": [pem_to_base64_key(client_list[sid]) for sid in client_list.keys()]
+    }
+
+    # Send the client_update message back to the requesting server
+    socketio.emit('client_update', client_update_msg, room=sid)
+    print(f"Sent client update to server {sid}")
+
+# pem_to_base64_key utility function
+def pem_to_base64_key(pem_key):
+    return base64.b64encode(pem_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )).decode('utf-8')
+
 
 # def handle_client_update(data):
     # These messages are received from connected servers when
