@@ -4,8 +4,13 @@ import hashlib
 
 sha256_hash = hashlib.sha256()
 
-def make_signed_data_msg(msg_data, counter):
+fields = {
+    'signed_data': ['type', 'data', 'counter', 'signature'],
+    'client_update': ['type', 'clients'],
+    'client_update_request': ['type']
+}
 
+def create_signature(msg_data, counter):
     # Convert dictionary to JSON and from JSON to bytes
     msg_data_json = json.dumps(msg_data)
     msg_data_json_bytes = msg_data_json.encode('utf-8')
@@ -23,15 +28,39 @@ def make_signed_data_msg(msg_data, counter):
     base64_signature = base64.b64encode(binary_signature)
     # Convert the base64 encoding to a string to include in the message
     base64_signature = base64_signature.decode('utf-8')
-    
+    return base64_signature
+
+def make_signed_data_msg(msg_data, counter):
+
+    signature = create_signature(msg_data, counter)
+
     # Create message
     msg = {
         'type': 'signed_data',
         'data': msg_data,
         'counter': counter,
-        'signature': base64_signature
+        'signature': signature
     }
 
     # Return JSON formatted message
     return json.dumps(msg)
 
+def is_valid_message(msg, msg_type):
+    required_fields = fields[msg_type]
+    for field in required_fields:
+        if field not in msg:
+            return False
+
+    signature = create_signature(msg['data'], msg['counter'])
+    if(signature != msg['signature']):
+        return False
+    return True
+
+# Utility to parse and convert raw message data
+def process_data(data):
+    if isinstance(data, str):
+        return json.loads(data)
+    elif isinstance(data, dict):
+        return data
+    else:
+        print("Unknown data type received")

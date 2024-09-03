@@ -1,13 +1,11 @@
-# External
 import socketio
 import threading
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
-#Internal
-from message import *
-from crypto_utils import *
+from message_utils import make_signed_data_msg
+from crypto_utils import generate_private_key, get_public_key
 
 # RSA private key object
 private_key = generate_private_key()
@@ -37,7 +35,9 @@ def client_list(data):
 
     # The server key should contain a list of JSON objects
     # which each have an address and list of clients
-    json_server_list = data['servers']
+    json_server_list = {}
+    if(data):
+        json_server_list = data['servers']
 
     # The client maps each user to their host server
     for server in json_server_list:

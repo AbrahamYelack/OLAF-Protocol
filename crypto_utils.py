@@ -26,3 +26,10 @@ def base64_to_pem(pem_string):
         base64.b64decode(pem_string.encode('utf-8')),
         backend = default_backend()
     )
+
+# pem_to_base64_key utility function
+def pem_to_base64(pem_key):
+    return base64.b64encode(pem_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )).decode('utf-8')
