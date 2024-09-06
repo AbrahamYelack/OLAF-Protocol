@@ -1,8 +1,11 @@
 
 import base64
+import json
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
 
 # Generate private key for client
 def generate_private_key():
@@ -33,3 +36,24 @@ def pem_to_base64(pem_key):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )).decode('utf-8')
+
+def decrypt_symm_key(encoded_encrypted_symm_key, private_key):
+    encrypted_symm_key = base64.b64decode(encoded_encrypted_symm_key)
+    symm_key = private_key.decode(encrypted_symm_key)
+    return symm_key
+
+def decrypt_message(decrypted_symm_key, message, iv):
+    message = base64.b64decode(message)
+    iv = base64.b64decode(iv)
+    aes_key = decrypted_symm_key
+    encrypted_data = message
+    mode = modes.GCM(iv)
+    cipher = Cipher(algorithms.AES(aes_key), mode)
+    decryptor = cipher.decryptor()
+    decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
+    try:
+        data = json.loads(decrypted_data.decode('utf-8'))
+    except:
+        return None
+    print(f"Decoded data: {decrypted_data}")
+    return data
