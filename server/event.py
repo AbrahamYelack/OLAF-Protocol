@@ -1,47 +1,28 @@
-from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-import json
-import base64
+import sys
+import os
 
-from crypto_utils import base64_to_pem, pem_to_base64
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs')))
+
+from flask import request
+from flask_socketio import emit, join_room, leave_room
 from message_utils import is_valid_message, process_data
+from crypto_utils import base64_to_pem, pem_to_base64
+from cryptography.hazmat.primitives import serialization
 
-class Server:
+class Event:
+    def __init__(self, server):
+        self.server = server
 
-    def __init__(self, host, port):
-        self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app)
-        self.nonce_map = {}
-        self.user_list = {}
-        self.client_list = {}
-        self.host = host
-        self.port = port
-
-        self.socketio.on_event('connect', self.handle_connect)
-        self.socketio.on_event('disconnect', self.handle_disconnect)
-        self.socketio.on_event('hello', self.handle_hello)
-        self.socketio.on_event('client_list_request', self.handle_client_list_request)
-        self.socketio.on_event('message', self.handle_message)
-
-    def run(self):
-        self.socketio.run(self.app, self.host, self.port)
-
-    def send(self, data, *rooms):
-        for room in rooms:
-            self.socketio.send(data, room=room)
-
-    def handle_connect(self):
+    def connect(self):
         sid = request.sid
         join_room('server')
         print(f'Process {sid} connected')
 
-    def handle_disconnect(self):
+    def disconnect(self):
         sid = request.sid
         print(f'Process {sid} disconnected')
 
-    def handle_hello(self, msg):
+    def hello(self, msg):
         sid = request.sid
         print(f"Hello received from {sid}")
 
@@ -55,19 +36,19 @@ class Server:
         public_key = data['public_key']
 
         # Add public key to client_list
-        self.client_list[sid] = base64_to_pem(public_key)
+        self.server.client_list[sid] = base64_to_pem(public_key)
         emit("hello")
 
     # When a client makes a client_list_request respond with
     # the latest user_list object
-    def handle_client_list_request(self, data):
+    def client_list_request(self, data):
         sid = request.sid
         print(f"Client list request received from {sid}")
-        emit('client_list', self.user_list, room=sid)
+        emit('client_list', self.server.user_list, room=sid)
 
     # Generic event listener that decodes the incoming data and 
     # dispatches to the relevant handler to process the message
-    def handle_message(self, data):
+    def message(self, data):
         
         data = process_data(data).get('data')
         msg_type = None
@@ -83,28 +64,28 @@ class Server:
             return
 
         if msg_type == 'chat':
-            self.handle_chat(data)
+            self.server.handle_chat(data)
         elif msg_type == 'public_chat':
-            self.handle_public_chat(data)
+            self.server.handle_public_chat(data)
         elif msg_type == 'client_update_request':
-            self.handle_client_update_request(data)
+            self.server.handle_client_update_request(data)
         elif msg_type == 'client_update':
-            self.handle_client_update(data)
+            self.server.handle_client_update(data)
         else:
             print("Unknown message type received")
 
-    def handle_chat(self, data):
+    def chat(self, data):
         sid = request.sid
 
         # Determine if the message came from a client or another sender
-        if sid in self.client_list:
+        if sid in self.server.client_list:
             destination_servers = data['data']['destination_servers']
             for server in destination_servers:
-                self.send(data, server)
+                self.server.send(data, server)
         else:
-            self.send(data, 'client')
+            self.server.send(data, 'client')
     
-    def handle_client_update(self, data):
+    def client_update(self, data):
         print("Received client update from another server")
 
         updated_clients = data.get('clients', [])
@@ -122,37 +103,32 @@ class Server:
                     encoding=serialization.Encoding.PEM,
                     format=serialization.PublicFormat.SubjectPublicKeyInfo
                 )
-                for key in self.client_list.values()
+                for key in self.server.client_list.values()
             )
 
             # If the client isn't in the user_list, add it
             if not client_exists:
                 server_address = data.get('address', 'unknown')
-                self.user_list[client_pem] = server_address
+                self.server.user_list[client_pem] = server_address
                 print(f"Added new client to user_list with address {server_address}")
 
         print("User list updated successfully")
     
-    def handle_client_update_request(self, data):
+    def client_update_request(self, data):
         sid = request.sid
         print(f"Client update request recieved from server {sid}")
 
         client_update_msg = {
             "type": "client_update",
-            "clients": [pem_to_base64(self.client_list[sid]) for sid in self.client_list.keys()]
+            "clients": [pem_to_base64(self.server.client_list[sid]) for sid in self.server.client_list.keys()]
         }
-        self.send(client_update_msg, sid)
+        self.server.send(client_update_msg, sid)
         print(f"Sent client update to server {sid}")
 
-    def handle_public_chat(self, data):
+    def public_chat(self, data):
         sid = request.sid
         
-        if sid in self.client_list:
-            self.send(data, 'client', 'server')
+        if sid in self.server.client_list:
+            self.server.send(data, 'client', 'server')
         else:
-            self.send(data, 'client')
-
-if __name__ == '__main__':
-    server = Server("localhost", 4678)
-    server.run()
-
+            self.server.send(data, 'client')
