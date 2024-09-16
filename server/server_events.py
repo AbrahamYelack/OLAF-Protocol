@@ -9,13 +9,12 @@ from message_utils import is_valid_message, process_data
 from crypto_utils import base64_to_pem, pem_to_base64
 from cryptography.hazmat.primitives import serialization
 
-class Event:
+class ServerEvent:
     def __init__(self, server):
         self.server = server
 
     def connect(self):
         sid = request.sid
-        join_room('server')
         print(f'Process {sid} connected')
 
     def disconnect(self):
@@ -29,7 +28,6 @@ class Event:
         processed_data = process_data(msg)
 
         # Move connection to the client room
-        leave_room('server')
         join_room('client')
 
         data = processed_data['data']
@@ -48,9 +46,16 @@ class Event:
 
     # Generic event listener that decodes the incoming data and 
     # dispatches to the relevant handler to process the message
-    def message(self, data):
+    def message(self, msg):
         
-        data = process_data(data).get('data')
+        print("A message has been received")
+        processed_msg = process_data(msg)
+
+        if not is_valid_message(processed_msg, processed_msg['type']):
+            print(f"Invalid message recieved of type {processed_msg['type']}")
+            return
+
+        data = processed_msg['data']
         msg_type = None
 
         if(data):
@@ -58,32 +63,37 @@ class Event:
         else:
             print("Ignoring message due to error")
             return
+
+        print(data)
         
         if not is_valid_message(data, msg_type):
             print(f"Invalid message recieved of type {msg_type}")
             return
 
         if msg_type == 'chat':
-            self.server.handle_chat(data)
+            self.chat(data)
         elif msg_type == 'public_chat':
-            self.server.handle_public_chat(data)
+            self.public_chat(data)
         elif msg_type == 'client_update_request':
-            self.server.handle_client_update_request(data)
+            self.client_update_request(data)
         elif msg_type == 'client_update':
-            self.server.handle_client_update(data)
+            self.client_update(data)
+        elif msg_type == 'server_hello':
+            self.server_hello(data)
         else:
             print("Unknown message type received")
 
     def chat(self, data):
         sid = request.sid
-
-        # Determine if the message came from a client or another sender
+        # Determine if the message came from a client or another server
         if sid in self.server.client_list:
+            print("Received chat message from client: {sid}")
             destination_servers = data['data']['destination_servers']
             for server in destination_servers:
-                self.server.send(data, server)
+                self.server.send(data, "Server", server)
         else:
-            self.server.send(data, 'client')
+            print("Received chat message from server: {sid}")
+            self.server.send(data, "Client", 'client')
     
     def client_update(self, data):
         print("Received client update from another server")
@@ -128,7 +138,43 @@ class Event:
     def public_chat(self, data):
         sid = request.sid
         
+        # If from client, forward to all connected servers
         if sid in self.server.client_list:
-            self.server.send(data, 'client', 'server')
+            self.server.send(data, 'Server', list(self.server.connected_servers.keys()))
+        # If from server, forward to all clients
         else:
-            self.server.send(data, 'client')
+            self.server.send(data, 'Client', 'client')
+    
+    def server_hello(self, data):
+        sid = request.sid
+        print(f"Server hello received from {sid}")
+
+        processed_data = process_data(data).get("data")
+
+        # Move connection to the server room
+        join_room('server')
+
+        data = processed_data['data']
+        server_ip = data["sender"]
+        client_socket = self.server.create_client_socket()
+        try:
+            print(f'Attempting to connect to {server_ip}')
+            client_socket.connect(server_ip)
+            self.server.connected_servers[server_ip] = client_socket
+        except Exception as e:
+            print(f'Unexpected error during connection: {e}')
+
+# This class was specifically created to handle the events that occur on the 
+# client sockets that belong to the server. These client sockets are managed by the
+# server and used to connect to and communicate to other servers in the neighbourhood
+class ClientEvent:
+    def __init__(self, client):
+        self.client = client
+
+    def connect(self):
+        socket = self.client.eio.transport().socket
+        self.server_ip, self.server_port = socket.getpeername()
+        print(f'Successfully connected to neighbour server: {self.server_ip}:{self.server_port}')
+
+    def disconnect(self):
+        print(f'Disconnected from neighbour server: {self.server_ip}:{self.server_port}')

@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs')))
 
 from message_utils import make_signed_data_msg
-from crypto_utils import generate_private_key, get_public_key
+from crypto_utils import generate_private_key, get_public_key, get_fingerprint
 
 class Request:
 
@@ -24,7 +24,7 @@ class Request:
         }
 
         print("Requesting service from server")
-        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.counter))
+        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce))
         self.client.socket_io.emit("hello", signed_hello_msg)
         self.client.response_event.clear()
         self.client.response_event.wait()
@@ -37,3 +37,15 @@ class Request:
         })
         self.client.response_event.clear()
         self.client.response_event.wait()
+    
+    def public_chat(self, message_text):
+        print("Sending public chat")
+        fingerprint = get_fingerprint(self.client.private_key)
+        public_chat_data = {
+            'type': 'public_chat',
+            'sender': fingerprint,
+            'message': str(message_text)
+        }
+        public_chat = make_signed_data_msg(public_chat_data, str(self.client.nonce))
+        self.client.nonce += 1
+        self.client.socket_io.emit("message", public_chat)

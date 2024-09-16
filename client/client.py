@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs')))
 
 from crypto_utils import generate_private_key
-from event import Event
+from client_events import Event
 from request import Request
 
 class Client:
@@ -18,7 +18,7 @@ class Client:
         self.port = port
 
         self.private_key = generate_private_key()
-        self.counter = 0
+        self.nonce = 1
         self.user_list = {}
         self.message_buffer = []
         self.event = Event(self)
@@ -59,3 +59,5 @@ if __name__ == '__main__':
     server_port = 4678
     client = Client(server_host, server_port)
     client.initialise()
+    client.request.public_chat("Testing Testing 123")
+    client.socket_io.wait()

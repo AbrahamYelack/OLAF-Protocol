@@ -2,11 +2,11 @@ import base64
 import json
 import hashlib
 
-sha256_hash = hashlib.sha256()
-
+# Please add if any missing
 fields = {
     'signed_data': ['type', 'data', 'counter', 'signature'],
     'client_update': ['type', 'clients'],
+    'public_chat': ['type', 'sender', 'message'],
     'client_update_request': ['type'],
     'client_list_request' : [],
     'client_list': ['server'],
@@ -24,6 +24,7 @@ def create_signature(msg_data, counter):
     counter_base64 = base64.b64encode(counter.encode('utf-8'))
     
     # Hash the concatenation of the base64 message data and counter
+    sha256_hash = hashlib.sha256()
     sha256_hash.update(msg_data_json_base64 + counter_base64)
     binary_signature = sha256_hash.digest()
 
@@ -54,9 +55,11 @@ def is_valid_message(msg, msg_type):
         if field not in msg:
             return False
 
-    signature = create_signature(msg['data'], msg['counter'])
-    if(signature != msg['signature']):
-        return False
+    if(msg_type == 'signed_data'):
+        signature = create_signature(msg['data'], str(msg['counter']))
+        if(signature != msg['signature']):
+            return False
+
     return True
 
 # Utility to parse and convert raw message data
