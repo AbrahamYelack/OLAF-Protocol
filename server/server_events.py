@@ -149,12 +149,8 @@ class ServerEvent:
         sid = request.sid
         print(f"Server hello received from {sid}")
 
-        processed_data = process_data(data).get("data")
-
         # Move connection to the server room
         join_room('server')
-
-        data = processed_data['data']
         server_ip = data["sender"]
         client_socket = self.server.create_client_socket()
         try:
