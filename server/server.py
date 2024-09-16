@@ -53,8 +53,7 @@ class Server:
                 else:
                     print(f"Couldn't find {server} in connected server list")
         else:
-            for room in dest:
-                self.socketio.send(data, room=room)
+            self.socketio.send(data, room=dest)
     
     def connect_to_servers(self):
         for server in self.server_list:
