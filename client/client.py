@@ -38,19 +38,8 @@ class Client:
         print("!------Initialisation Process Completed------!")
     
     def run(self):
-        # Could visualise the users currently in the user list
-        # and allow the user to choose who they want to send to
-        # Request for user input regarding:
-            # Type of chat message to send: Public Chat, Chat
-
-        # OR
-
-        # Create and document command line input that can be parsed 
-        # and the operation executed
-
-        # Need method of displaying reeived messages to the client:
-            # Do we buffer messages until read is requested?
-            # Do we immediately display the received message
+        # Need to write a method to allow user input to send messages and display buffered
+        # messages on request
         return
     
 
