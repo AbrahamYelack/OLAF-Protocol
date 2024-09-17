@@ -20,13 +20,15 @@ class Server:
 
     def __init__(self, host, port):
         self.app = Flask(__name__)
+
         self.socketio = SocketIO(self.app)
-        # dest_server -> socketio.Client()
+        self.server_map = {}
         self.connected_servers = {}
         self.nonce = 1
-        self.nonce_map = {}
+        self.user_nonce_map = {}
         self.user_list = {}
         self.client_list = {}
+
         self.host = host
         self.port = port
         self.event_handler = ServerEvent(self)

@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs')))
 
@@ -19,17 +20,36 @@ class ServerEvent:
 
     def disconnect(self):
         sid = request.sid
-        print(f'Process {sid} disconnected')
+        # If the connection was a server, cleanup server_map and connected_servers
+        if self.server.server_map.get(sid):
+            ip_address = self.server.server_map[sid]
+            print(f'Server {ip_address} disconnected')
+            if self.server.connected_servers.get(ip_address):
+                del self.server.connected_servers.get[ip_address]
+            del self.server.server_map[sid]
+        # If the connected was a client, cleanup the client list
+        elif self.server.client_list.get(sid):
+            print(f'Client {sid} disconnected')
+            del self.server.client_list[sid]
+        # Any other connection was not yet identified as a server nor client, hence
+        # no cleanup is required
+        else: 
+            print(f'Unknown process {sid} disconnected')
 
     def hello(self, msg):
         sid = request.sid
-        print(f"Hello received from {sid}")
+        print(f"Client hello received from {sid}")
 
         processed_data = process_data(msg)
+
+        if not is_valid_message(processed_data, 'signed_data' 
+            or not is_valid_message(processed_data['data'], 'hello')):
+            print("Invalid hello message received from client, dropping message")
 
         # Move connection to the client room
         join_room('client')
 
+        # Extract the public key
         data = processed_data['data']
         public_key = data['public_key']
 
@@ -42,7 +62,37 @@ class ServerEvent:
     def client_list_request(self, data):
         sid = request.sid
         print(f"Client list request received from {sid}")
-        emit('client_list', self.server.user_list, room=sid)
+
+        processed_data = process_data(data)
+
+        if not is_valid_message(processed_data, 'client_list_request'):
+            print("Invalid client_list_request message received from client, dropping message")
+
+        # Initialize a dictionary to organize clients by server address
+        server_clients = {}
+
+        # Group clients by their server (IP address)
+        for client_pem, ip_address in self.server.user_list.items():
+            if ip_address not in server_clients:
+                server_clients[ip_address] = []
+            server_clients[ip_address].append(client_pem)
+
+        # Create the final JSON structure
+        client_list = {
+            "type": "client_list",
+            "servers": [
+                {
+                    "address": server,
+                    "clients": clients
+                }
+                for server, clients in server_clients.items()
+            ]
+        }
+
+        # Convert to JSON string
+        client_list = json.dumps(client_list)
+
+        emit('client_list', client_list, room=sid)
 
     # Generic event listener that decodes the incoming data and 
     # dispatches to the relevant handler to process the message
@@ -63,8 +113,6 @@ class ServerEvent:
         else:
             print("Ignoring message due to error")
             return
-
-        print(data)
         
         if not is_valid_message(data, msg_type):
             print(f"Invalid message recieved of type {msg_type}")
@@ -81,7 +129,7 @@ class ServerEvent:
         elif msg_type == 'server_hello':
             self.server_hello(data)
         else:
-            print("Unknown message type received")
+            print("Unknown message type received, dropping message")
 
     def chat(self, data):
         sid = request.sid
@@ -91,59 +139,62 @@ class ServerEvent:
             destination_servers = data['data']['destination_servers']
             for server in destination_servers:
                 self.server.send(data, "Server", server)
-        else:
+        elif sid in self.server.server_list:
             print("Received chat message from server: {sid}")
             self.server.send(data, "Client", 'client')
+        else:
+            print("Chat message received from unknown connection, dropping message")
     
     def client_update(self, data):
-        print("Received client update from another server")
+        sid = request.sid
+        if not self.server.server_list.get(sid):
+            print("Received client update from an unknown server, dropping message")
+            return
+        ip_address = self.server.server_list.get(sid)
+        print(f"Received client update from server: {ip_address}")
 
         updated_clients = data.get('clients', [])
 
+        # Remove all previous entries in the user_list belonging to this server
+        self.server.user_list = {key: val for key, val in self.server.user_list.items() if val != ip_address}
+
         # Go through each updated client and update the user_list
         for client_pem in updated_clients:
-
-            client_key = base64_to_pem(client_pem)
-            # Check if the client is already in the user_list
-            client_exists = any(
-                client_key.public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo
-                ) == key.public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo
-                )
-                for key in self.server.client_list.values()
-            )
-
-            # If the client isn't in the user_list, add it
-            if not client_exists:
-                server_address = data.get('address', 'unknown')
-                self.server.user_list[client_pem] = server_address
-                print(f"Added new client to user_list with address {server_address}")
+            self.server.user_list[client_pem] = ip_address
 
         print("User list updated successfully")
     
     def client_update_request(self, data):
         sid = request.sid
-        print(f"Client update request recieved from server {sid}")
+        if not self.server.server_list.get(sid):
+            print("Received client update from an unknown server, dropping message")
+            return
+        ip_address = self.server.server_list.get(sid)
+        print(f"Client update request recieved from server {ip_address}")
 
         client_update_msg = {
             "type": "client_update",
             "clients": [pem_to_base64(self.server.client_list[sid]) for sid in self.server.client_list.keys()]
         }
-        self.server.send(client_update_msg, sid)
-        print(f"Sent client update to server {sid}")
+        client_update_msg = json.dumps(client_update_msg)
+        self.server.send(client_update_msg, "Server", ip_address)
+        print(f"Sent client update to server {ip_address}")
 
     def public_chat(self, data):
         sid = request.sid
         
         # If from client, forward to all connected servers
         if sid in self.server.client_list:
-            self.server.send(data, 'Server', list(self.server.connected_servers.keys()))
+            print(f"Received public_chat message from client {sid}, forwarding to all neighbours")
+            for server in list(self.server.connected_servers.keys()):
+                self.server.send(data, 'Server', server)
         # If from server, forward to all clients
-        else:
+        elif sid in self.server.server_list:
+            print(f"Received public_chat message from server {self.server.server_list.get(sid)}, forwarding to all clients")
             self.server.send(data, 'Client', 'client')
+        else:
+            print("Received public_chat message from an unknown connection, dropping message")
+
     
     def server_hello(self, data):
         sid = request.sid
@@ -151,18 +202,25 @@ class ServerEvent:
 
         # Move connection to the server room
         join_room('server')
+
+        # Get the IP of the server from the message
         server_ip = data["sender"]
+
+        # Attempt to connect to the server via a client socket
         client_socket = self.server.create_client_socket()
         try:
             print(f'Attempting to connect to {server_ip}')
             client_socket.connect(server_ip)
+            # Store the socket
             self.server.connected_servers[server_ip] = client_socket
+            # Map the connection to the server's IP
+            self.server.server_map[sid] = server_ip
         except Exception as e:
-            print(f'Unexpected error during connection: {e}')
+            print(f'Unexpected error during connection after receiving server_hello: {e}')
 
 # This class was specifically created to handle the events that occur on the 
 # client sockets that belong to the server. These client sockets are managed by the
-# server and used to connect to and communicate to other servers in the neighbourhood
+# server and used to connect to and communicate to other servers in the neighbourhood.
 class ClientEvent:
     def __init__(self, client):
         self.client = client

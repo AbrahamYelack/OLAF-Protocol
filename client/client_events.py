@@ -27,9 +27,11 @@ class Event:
 
         print("Received user list from server")
 
+        data = process_data(data)
+
         # The server key should contain a list of JSON objects
         # which each have an address and list of clients
-        json_server_list = {}
+        json_server_list = None
         if(data):
             json_server_list = data['servers']
 
