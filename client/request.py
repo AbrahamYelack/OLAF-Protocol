@@ -36,7 +36,7 @@ class Request:
         Connects the client to the server.
         """
         print("Attempting to connect to server")
-        self.client.socket_io.connect(f'http://{self.client.host}:{self.client.port}')
+        self.client.socket_io.connect(f'ws://{self.client.host}:{self.client.port}')
         self.client.response_event.wait()
 
     def hello(self):
@@ -47,9 +47,9 @@ class Request:
             'type': 'hello',
             'public_key': get_public_key(self.client.private_key)
         }
+        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce))
 
         print("Requesting service from server")
-        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce))
         self.client.socket_io.emit("hello", signed_hello_msg)
         self.client.response_event.clear()
         self.client.response_event.wait()

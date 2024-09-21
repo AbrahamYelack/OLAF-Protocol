@@ -8,6 +8,10 @@ exchanges. It also provides utilities for signing messages and validating their 
 Classes:
     Server: Represents the server that handles socket connections and events.
 """
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), 'libs')))
+import argparse
 import socketio
 from flask import Flask
 from flask_socketio import SocketIO
@@ -112,6 +116,12 @@ class Server:
         return client_socket
 
 if __name__ == '__main__':
-    server = Server("localhost", 4678)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', type=str, required=True, help='Hostname')
+    parser.add_argument('--port', type=int, required=True, help='Port')
+    args = parser.parse_args()
+    HOST = args.host
+    PORT = args.port
+    server = Server(HOST, PORT)
     server.connect_to_servers()
     server.run()
