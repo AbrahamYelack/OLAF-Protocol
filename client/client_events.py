@@ -1,109 +1,118 @@
-import sys
-import os
+"""
+This module encapsulates the Event class, which handles the client-side events
+for the OLAF-Neighbourhood protocol. It includes methods for processing various
+events such as connecting to the server, receiving user lists, and handling
+messages. The Event class manages the interaction between the client and server,
+ensuring that messages are processed appropriately based on their types.
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs')))
+Key functionalities:
+- Connecting to the server and handling connection events.
+- Processing incoming messages, including chat and public chat types.
+- Maintaining a buffer of messages for client-side access.
+"""
 
+from collections import namedtuple
 from message_utils import is_valid_message, process_data
 from crypto_utils import decrypt_symm_key, decrypt_message
-from collections import namedtuple
 
 # Object to store processed messages on the client side
 Msg = namedtuple('Msg', ['text', 'sender', 'participants'])
 
 class Event:
+    """
+    Handles events related to client-server communication.
+
+    Attributes:
+        client: An instance of the Client class to manage socket communication.
+    """
 
     def __init__(self, client):
+        """
+        Initializes the Event object with the specified client.
+
+        Args:
+            client: An instance of the Client class.
+        """
         self.client = client
 
     def connect(self):
+        """Handles successful connection to the server."""
         print("Successfully connected to server")
         self.client.response_event.set()
 
     def hello(self):
+        """Handles acknowledgment of service request from the server."""
         print("Server accepted the request for service")
         self.client.response_event.set()
 
     def client_list(self, data):
+        """
+        Processes the list of clients received from the server.
 
+        Args:
+            data: The data containing the list of clients and their server addresses.
+        """
         print("Received user list from server")
 
         data = process_data(data)
 
-        # The server key should contain a list of JSON objects
-        # which each have an address and list of clients
-        json_server_list = None
-        if(data):
-            json_server_list = data['servers']
+        json_server_list = data.get('servers') if data else None
 
-        # The client maps each user to their host server
-        for server in json_server_list:
-            for client in server['clients']:
-                self.client.user_list[client] = server['address']
+        if json_server_list:
+            for server in json_server_list:
+                for client in server['clients']:
+                    self.client.user_list[client] = server['address']
         self.client.response_event.set()
 
     def message(self, data):
-        data = process_data(data).get('data')
-        msg_type = None
+        """
+        Processes incoming messages from the server.
 
-        if(data):
-            msg_type = data.get('type')
-        else:
+        Args:
+            data: The incoming message data.
+        """
+        data = process_data(data).get('data')
+        if data is None:
             print("Ignoring message due to error")
             return
-        
+
+        msg_type = data.get('type')
         if not is_valid_message(data, msg_type):
-            print(f"Invalid message recieved of type {msg_type}")
+            print(f"Invalid message received of type {msg_type}")
             return
 
-        if msg_type == 'chat' or msg_type == 'public_chat':
+        if msg_type in {'chat', 'public_chat'}:
             self.client.handle_chat(data)
         else:
             print("Unknown message type received")
 
     def handle_chat(self, data):
+        """
+        Handles chat messages received from the server.
 
-        # Message must be valid to reach this point
-        # There are two message types that arrive here:
-        # 
-        #  1 - public_chat
-        #  2 - chat
-        # 
-        # 'public_chat': The content (message, sender, recipients)
-        # can be buffered immediately, as this information is not encrypted
-        # 'chat' messages mus
-        # 
-        # 'chat': The 'chat' segment of the message must be decrypted using 
-        # the AES symmetric key. The AES symmetric key is itself encrypted and 
-        # located in the 'symm_keys' (list) segment of the message. 
-        # A brute-force trial and error approach must be performed to decrypt 
-        # each symmetric key with your RSA private key and use this key to decrypt 
-        # the 'chat' segment. Success is determined by a correctly structured chat 
-        # segment as output
-
-        if(data['type'] == "public_chat"):
-            # Create message and push to buffer
+        Args:
+            data: The chat message data.
+        """
+        if data['type'] == "public_chat":
             msg = Msg(data['message'], data['sender'], ["Public"])
             self.client.message_buffer.append(msg)
         else:
             encrypted_chat = data["chat"]
             iv = data["iv"]
             chat = None
-            # Try to decrypt each symm key and use this decrypted symm key to 
-            # decrypt the chat segment.
+
             for encrypted_symm_key in data['symm_keys']:
                 symm_key = decrypt_symm_key(encrypted_symm_key, self.client.private_key)
                 chat = decrypt_message(symm_key, encrypted_chat, iv)
-                if chat: break
-            
-            # Couldn't decrypt chat segment
-            if(not chat):
-                print("Couldn't decrypt chat segment, assuming it is not addressed to me and dropping message")
+                if chat:
+                    break
+            if chat is None:
+                print("""Couldn't decrypt chat segment, assuming
+                it is not addressed to me and dropping message""")
                 return
-                
-            # Validate decrypted chat JSON
             if not is_valid_message(chat, 'chat'):
-                print("Chat message decrypted although it is valid, dropping message")
+                print("Chat message decrypted but is invalid, dropping message")
+                return
 
-            # Store decrypted message info in a buffer
             msg = Msg(chat['message'], chat['participants'][0], chat['participants'][1:])
             self.client.message_buffer.append(msg)

@@ -1,26 +1,44 @@
-import sys
-import os
+"""
+This module contains the implementation of the OLAF-Neighborhood protocol server.
+
+It manages connections between clients and servers using Flask and Flask-SocketIO.
+The server handles various events such as connections, disconnections, and message
+exchanges. It also provides utilities for signing messages and validating their integrity.
+
+Classes:
+    Server: Represents the server that handles socket connections and events.
+"""
 import socketio
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs')))
-
-import json
-import base64
-from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from crypto_utils import base64_to_pem, pem_to_base64
-from message_utils import is_valid_message, process_data, make_signed_data_msg
+from flask import Flask
+from flask_socketio import SocketIO
+from message_utils import make_signed_data_msg
 from server_events import ServerEvent, ClientEvent
+from socketio.exceptions import ConnectionError as ConnectionErrorSocketIO, SocketIOError
 
 class Server:
+    """Class representing the server for the OLAF-Neighborhood protocol.
+
+    Attributes:
+        app: Flask application instance.
+        socketio: SocketIO instance for handling WebSocket connections.
+        server_map: Mapping of connected servers.
+        connected_servers: List of currently connected servers.
+        nonce: Counter for unique message identification.
+        user_nonce_map: Mapping of user nonces.
+        user_list: List of connected users.
+        client_list: List of connected clients.
+    """
 
     server_list = []
 
     def __init__(self, host, port):
-        self.app = Flask(__name__)
+        """Initializes the Server with the given host and port.
 
+        Args:
+            host (str): The hostname or IP address for the server.
+            port (int): The port number for the server.
+        """
+        self.app = Flask(__name__)
         self.socketio = SocketIO(self.app)
         self.server_map = {}
         self.connected_servers = {}
@@ -34,9 +52,7 @@ class Server:
         self.event_handler = ServerEvent(self)
         self.client_socket_event_handler = ClientEvent(self)
 
-        # These are the server based handlers, they are invoked on any message sent
-        # to the publicly exposed ip:port used to communicate to other servers and
-        # clients
+        # Event handlers for socket events
         self.socketio.on_event('connect', self.event_handler.connect)
         self.socketio.on_event('disconnect', self.event_handler.disconnect)
         self.socketio.on_event('hello', self.event_handler.hello)
@@ -44,39 +60,52 @@ class Server:
         self.socketio.on_event('message', self.event_handler.message)
 
     def run(self):
+        """Runs the Flask application with SocketIO."""
         self.socketio.run(self.app, self.host, self.port)
 
     def send(self, data, recipient, dest):
-        
+        """Sends data to a specific recipient.
+
+        Args:
+            data (str): The data to be sent.
+            recipient (str): The type of recipient ('Server' or client).
+            dest (list): List of destination identifiers (server IPs or client rooms).
+        """
         if recipient == "Server":
-            for server in dest:
-                if self.connected_servers.get(server):
-                    self.connected_servers[server].send(data)
+            for server_ip in dest:
+                if self.connected_servers.get(server_ip):
+                    self.connected_servers[server_ip].send(data)
                 else:
-                    print(f"Couldn't find {server} in connected server list")
+                    print(f"Couldn't find {server_ip} in connected server list")
         else:
             self.socketio.send(data, room=dest)
-    
+
     def connect_to_servers(self):
-        for server in self.server_list:
+        """Connects to listed servers and sends a hello message."""
+        for server_ip in self.server_list:
             try:
-                print(f'Attempting to connect to {server}')
+                print(f'Attempting to connect to {server_ip}')
                 client_socket = self.create_client_socket()
-                client_socket.connect(server)
-                self.connected_servers[server] = client_socket
-            except Exception as e:
-                print(f'Unexpected error during connection: {e}')
-        
+                client_socket.connect(server_ip)
+                self.connected_servers[server_ip] = client_socket
+            except (ConnectionErrorSocketIO, SocketIOError) as e:
+                print(f'Error ocurred trying to connect to neighbour during server startup: {e}')
+
         server_hello_data = {
-                "type": "server_hello",
-                "sender": f"{self.host}:{self.port}"
-            }
-        for server in list(self.connected_servers.keys()):
+            "type": "server_hello",
+            "sender": f"{self.host}:{self.port}"
+        }
+        for server_ip in list(self.connected_servers.keys()):
             server_hello = make_signed_data_msg(server_hello_data, str(self.nonce))
             self.nonce += 1
-            self.connected_servers[server].send(server_hello)
+            self.connected_servers[server_ip].send(server_hello)
 
     def create_client_socket(self):
+        """Creates and configures a SocketIO client socket.
+
+        Returns:
+            socketio.Client: Configured SocketIO client.
+        """
         client_socket = socketio.Client()
         client_socket.on("connect", self.client_socket_event_handler.connect)
         client_socket.on("disconnect", self.client_socket_event_handler.disconnect)
@@ -86,4 +115,3 @@ if __name__ == '__main__':
     server = Server("localhost", 4678)
     server.connect_to_servers()
     server.run()
-
