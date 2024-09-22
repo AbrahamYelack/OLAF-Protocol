@@ -9,6 +9,7 @@ import base64
 import json
 import os
 import hashlib
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as rsa_padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -113,25 +114,28 @@ def decrypt_message(decrypted_symm_key, message, iv):
 
     Args:
         decrypted_symm_key: The symmetric key used for decryption.
-        message: The base64-encoded encrypted message.
+        message: The base64-encoded encrypted message (which includes the authentication tag).
         iv: The base64-encoded initialization vector used during encryption.
 
     Returns:
         The decrypted message as a JSON object, or None if decryption fails.
     """
-    message = base64.b64decode(message)
-    iv = base64.b64decode(iv)
-    aes_key = decrypted_symm_key
-    mode = modes.GCM(iv)
-    cipher = Cipher(algorithms.AES(aes_key), mode)
-    decryptor = cipher.decryptor()
-    decrypted_data = decryptor.update(message) + decryptor.finalize()
+    # Decode the base64-encoded message and IV from utf-8 strings
+    message = base64.b64decode(message.encode('utf-8'))  # Convert to bytes first, then decode from base64
+
+    # Initialize AES GCM for decryption
+    aesgcm = AESGCM(decrypted_symm_key)
 
     try:
+        # Decrypt the message. AESGCM automatically handles authentication tag verification.
+        decrypted_data = aesgcm.decrypt(iv, message, None)
+
+        # Convert decrypted bytes to JSON object
         data = json.loads(decrypted_data.decode('utf-8'))
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, InvalidTag):
+        # Return None if decryption fails due to invalid tag or JSON parsing issues
         return None
-    print(f"Decoded data: {decrypted_data}")
+    
     return data
 
 def encrypt_message(key, message):
@@ -168,16 +172,18 @@ def encrypt_symm_keys(symm_key, *recipients):
     """Encrypt a symmetric key for multiple recipients using their public keys.
 
     Args:
-        symm_key: The symmetric key to encrypt.
-        recipients: Public key objects of the recipients.
+        symm_key: The symmetric key to encrypt (should be in bytes).
+        recipients: Base64-encoded UTF-8 strings of public keys.
 
     Returns:
         A list of base64-encoded encrypted symmetric keys.
     """
     encrypted_symm_keys = []
     for recipient in recipients:
+        # Decode the base64-encoded public key
+        decoded_key = base64.b64decode(recipient.encode('utf-8'))
         public_key = serialization.load_pem_public_key(
-            recipient,
+            decoded_key,
             backend=default_backend()
         )
         ciphertext = public_key.encrypt(

@@ -80,11 +80,11 @@ class Request:
             'sender': fingerprint,
             'message': str(message_text)
         }
-        public_chat = make_signed_data_msg(public_chat_data, str(self.client.nonce))
+        public_chat_msg = make_signed_data_msg(public_chat_data, str(self.client.nonce))
         self.client.nonce += 1
 
         print("Sending public chat")
-        self.client.socket_io.emit("message", public_chat)
+        self.client.socket_io.emit("message", public_chat_msg)
 
     def chat(self, message_txt, *recipients):
         """
@@ -101,9 +101,9 @@ class Request:
             participants_list.append(fingerprint)
 
         chat = {
-            "chat": {
-                "participants": participants_list,
-                "message": message_txt
+            'chat': {
+                'participants': participants_list,
+                'message': message_txt
             }
         }
 
@@ -117,11 +117,11 @@ class Request:
         destination_server_list = [self.client.user_list[recipient] for recipient in recipients]
 
         data = {
-            "type": "chat",
-            "destination_servers": destination_server_list,
-            "iv": iv,
-            "symm_keys": encrypted_symm_keys,
-            "chat": encrypted_message
+            'type': 'chat',
+            'destination_servers': destination_server_list,
+            'iv': iv,
+            'symm_keys': encrypted_symm_keys,
+            'chat': encrypted_message
         }
 
         chat_message = make_signed_data_msg(data, str(self.client.nonce))

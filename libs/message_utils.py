@@ -15,7 +15,8 @@ fields = {
     'client_update_request': ['type'],
     'client_list_request': [],
     'client_list': ['server'],
-    'chat': ['participants', 'message'],
+    'chat': ['type', 'destination_servers', 'iv', 'symm_keys', 'chat'],
+    'chat_segment': ['participants', 'message'],
     'hello': ['type', 'public_key'],
     'server_hello': ['type', 'sender']
 }

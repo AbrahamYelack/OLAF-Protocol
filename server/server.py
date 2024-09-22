@@ -1,5 +1,5 @@
 """
-This module contains the implementation of the OLAF-Neighborhood protocol server.
+This module contains the implementation of an OLAF-Neighborhood protocol Server.
 
 It manages connections between clients and servers using Flask and Flask-SocketIO.
 The server handles various events such as connections, disconnections, and message
@@ -10,13 +10,14 @@ Classes:
 """
 import sys
 import os
+import json
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), 'libs')))
 import argparse
 import socketio
 from flask import Flask
 from flask_socketio import SocketIO
 from message_utils import make_signed_data_msg
-from server_events import ServerEvent, ClientEvent
+from server_events import ServerEvent
 from socketio.exceptions import ConnectionError as ConnectionErrorSocketIO, SocketIOError
 
 class Server:
@@ -33,7 +34,7 @@ class Server:
         client_list: List of connected clients.
     """
 
-    server_list = []
+    server_list = ["localhost:4679", "localhost:4678"]
 
     def __init__(self, host, port):
         """Initializes the Server with the given host and port.
@@ -43,7 +44,7 @@ class Server:
             port (int): The port number for the server.
         """
         self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app)
+        self.socketio = SocketIO(self.app, async_mode='eventlet')
         self.server_map = {}
         self.connected_servers = {}
         self.nonce = 1
@@ -54,7 +55,6 @@ class Server:
         self.host = host
         self.port = port
         self.event_handler = ServerEvent(self)
-        self.client_socket_event_handler = ClientEvent(self)
 
         # Event handlers for socket events
         self.socketio.on_event('connect', self.event_handler.connect)
@@ -76,34 +76,53 @@ class Server:
             dest (list): List of destination identifiers (server IPs or client rooms).
         """
         if recipient == "Server":
-            for server_ip in dest:
-                if self.connected_servers.get(server_ip):
-                    self.connected_servers[server_ip].send(data)
-                else:
-                    print(f"Couldn't find {server_ip} in connected server list")
+            if self.connected_servers.get(dest):
+                self.connected_servers[dest].send(data)
+            else:
+                print(f"Couldn't find {dest} in connected server list")
         else:
             self.socketio.send(data, room=dest)
 
     def connect_to_servers(self):
         """Connects to listed servers and sends a hello message."""
+
+        # Connect
         for server_ip in self.server_list:
             try:
-                print(f'Attempting to connect to {server_ip}')
                 client_socket = self.create_client_socket()
-                client_socket.connect(server_ip)
+                ip, port = server_ip.split(':')
+                port = int(port)
+                if port == self.port: 
+                    continue
+                print(f'Attempting to connect to {server_ip}')
+                url = f'ws://{ip}:{port}'
+                client_socket.connect(url)
                 self.connected_servers[server_ip] = client_socket
-            except (ConnectionErrorSocketIO, SocketIOError) as e:
-                print(f'Error ocurred trying to connect to neighbour during server startup: {e}')
+            except (ConnectionErrorSocketIO, SocketIOError):
+                print('Error ocurred trying to connect to neighbour during server startup')
 
+        # Send hello message
         server_hello_data = {
             "type": "server_hello",
             "sender": f"{self.host}:{self.port}"
         }
+
         for server_ip in list(self.connected_servers.keys()):
             server_hello = make_signed_data_msg(server_hello_data, str(self.nonce))
             self.nonce += 1
+            print(f"Sending hello message to {server_ip}")
             self.connected_servers[server_ip].send(server_hello)
 
+        # Request for client list
+        client_list_request = {
+            "type": "client_update_request"
+        }
+
+        client_list_request = json.dumps(client_list_request)
+        for server_ip in list(self.connected_servers.keys()):
+            print(f"Sending client list request to {server_ip}")
+            self.connected_servers[server_ip].send(client_list_request)
+            
     def create_client_socket(self):
         """Creates and configures a SocketIO client socket.
 
@@ -111,8 +130,17 @@ class Server:
             socketio.Client: Configured SocketIO client.
         """
         client_socket = socketio.Client()
-        client_socket.on("connect", self.client_socket_event_handler.connect)
-        client_socket.on("disconnect", self.client_socket_event_handler.disconnect)
+
+        @client_socket.event
+        def connect():
+            """Handle a new connection to a neighbor server."""
+            print('Successfully connected to neighbour server')
+
+        @client_socket.event
+        def disconnect():
+            """Handle disconnection from a neighbor server."""
+            print('Disconnected from neighbour server')
+
         return client_socket
 
 if __name__ == '__main__':

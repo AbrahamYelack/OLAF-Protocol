@@ -70,26 +70,38 @@ class Client:
         Runs the client, allowing for user input to send messages and display buffered messages.
         """
         while(True):
-            for index, value in enumerate(self.request_types):
-                print(f"{index}: '{value}'")
-            index = int(input("What type of message would you like to send: "))
-
-            if(self.request_types[index] == 'public_chat'):
-                message = str(input("Enter the message: "))
-                self.request.public_chat(message)
-            elif(self.request_types[index] == 'chat'):
-                users = list(self.user_list.keys())
-                for index, value in enumerate(users):
+            index = int(input("0: View Messages or 1: Send Message"))
+            if index == 0:
+                print(self.message_buffer)
+            else:
+                for index, value in enumerate(self.request_types):
                     print(f"{index}: '{value}'")
-                recipients_string = str(input("Which users you like to communicate with (comma seperated): "))
-                recipients_string = recipients.replace(" ", "")
-                recipients_string = recipients_string[::2] 
-                recipients = []
-                for i in range(len(recipients_string)):
-                    recipients.append(self.user_list[int(i)])
-                message = str(input("Enter the message: "))
-                self.request.chat(message, *recipients)
-            else: print("Sorry, that isn't a valid option")
+                index = int(input("What type of message would you like to send: "))
+
+                if(self.request_types[index] == 'public_chat'):
+                    message = str(input("Enter the message: "))
+                    self.request.public_chat(message)
+                elif(self.request_types[index] == 'chat'):
+                    users = list(self.user_list.keys())
+                    for index, value in enumerate(users):
+                        if self.user_list[value] == f"{self.host}:{self.port}":
+                            continue
+                        print(f"{index}: '{value}'")
+                    recipients_string = str(input("Which users you like to communicate with (comma seperated): "))
+                    recipients_string = recipients_string.replace(" ", "")  # Remove spaces
+                    recipients_indices = recipients_string.split(",")       # Split by comma
+                    recipients = []                                         # Prepare recipient list
+
+                    # Loop through each index provided by the user and add the corresponding user
+                    for i in recipients_indices:
+                        try:
+                            recipients.append(users[int(i)])  # Convert the index to int and get the user
+                        except (ValueError, IndexError):
+                            print(f"Invalid user index: {i}")  # Handle invalid input
+                            continue
+                    message = str(input("Enter the message: "))
+                    self.request.chat(message, *recipients)
+                else: print("Sorry, that isn't a valid option")
 
 
 

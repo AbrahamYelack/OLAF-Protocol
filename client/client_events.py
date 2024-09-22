@@ -10,7 +10,7 @@ Key functionalities:
 - Processing incoming messages, including chat and public chat types.
 - Maintaining a buffer of messages for client-side access.
 """
-
+import base64
 from collections import namedtuple
 from message_utils import is_valid_message, process_data
 from crypto_utils import decrypt_symm_key, decrypt_message
@@ -52,7 +52,6 @@ class Event:
         Args:
             data: The data containing the list of clients and their server addresses.
         """
-        print("Received user list from server")
 
         data = process_data(data)
 
@@ -82,7 +81,7 @@ class Event:
             return
 
         if msg_type in {'chat', 'public_chat'}:
-            self.client.handle_chat(data)
+            self.handle_chat(data)
         else:
             print("Unknown message type received")
 
@@ -103,14 +102,20 @@ class Event:
 
             for encrypted_symm_key in data['symm_keys']:
                 symm_key = decrypt_symm_key(encrypted_symm_key, self.client.private_key)
-                chat = decrypt_message(symm_key, encrypted_chat, iv)
+                chat = decrypt_message(symm_key, encrypted_chat, base64.b64decode(iv.encode('utf-8')))
                 if chat:
                     break
             if chat is None:
                 print("""Couldn't decrypt chat segment, assuming
                 it is not addressed to me and dropping message""")
                 return
-            if not is_valid_message(chat, 'chat'):
+            
+            if chat.get('chat') is None:
+                print("Chat message decrypted but is invalid, dropping message")
+                return
+            
+            chat = chat.get('chat')
+            if not is_valid_message(chat, 'chat_segment'):
                 print("Chat message decrypted but is invalid, dropping message")
                 return
 
