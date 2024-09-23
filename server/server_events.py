@@ -110,9 +110,6 @@ class ServerEvent:
         client_list_json = json.dumps(client_list)
         emit('client_list', client_list_json, room='client')
 
-
-
-
     def client_list_request(self, data):
         """Handle a request for the client list.
 
@@ -318,6 +315,10 @@ class ServerEvent:
 
         data = msg['data']
         server_ip = data["sender"]
+
+        if server_ip not in self.server.server_list:
+            print(f"A server_hello was received from an unrecognised server {server_ip}")
+            return
 
         if server_ip not in self.server.connected_servers:
             client_socket = self.server.create_client_socket()

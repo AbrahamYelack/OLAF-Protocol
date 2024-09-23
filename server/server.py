@@ -19,6 +19,7 @@ from flask_socketio import SocketIO
 from message_utils import make_signed_data_msg
 from server_events import ServerEvent
 from socketio.exceptions import ConnectionError as ConnectionErrorSocketIO, SocketIOError
+from file_routes import routes_bp, MAX_FILE_SIZE
 
 class Server:
     """Class representing the server for the OLAF-Neighborhood protocol.
@@ -44,6 +45,8 @@ class Server:
             port (int): The port number for the server.
         """
         self.app = Flask(__name__)
+        self.app.register_blueprint(routes_bp)
+        self.app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
         self.socketio = SocketIO(self.app, async_mode='eventlet')
         self.server_map = {}
         self.connected_servers = {}
@@ -62,6 +65,8 @@ class Server:
         self.socketio.on_event('hello', self.event_handler.hello)
         self.socketio.on_event('client_list_request', self.event_handler.client_list_request)
         self.socketio.on_event('message', self.event_handler.message)
+
+
 
     def run(self):
         """Runs the Flask application with SocketIO."""

@@ -8,6 +8,7 @@ import argparse
 import threading
 from crypto_utils import generate_private_key
 from client_events import Event
+from client_cli import ClientCLI
 from request import Request
 import socketio
 
@@ -28,7 +29,7 @@ class Client:
     """
 
     response_event = threading.Event()
-    request_types = ['public_chat', 'chat']
+    request_types = ['public_chat', 'chat', 'file_upload', 'file_download']
 
     def __init__(self, host, port):
         """
@@ -45,8 +46,10 @@ class Client:
         self.nonce = 1
         self.user_list = {}
         self.message_buffer = []
+        self.download_links = {}
         self.event = Event(self)
         self.request = Request(self)
+        self.client_cli = ClientCLI(self)
 
         self.socket_io = socketio.Client()
         self.socket_io.on('connect', self.event.connect)
@@ -69,39 +72,7 @@ class Client:
         """
         Runs the client, allowing for user input to send messages and display buffered messages.
         """
-        while(True):
-            index = int(input("0: View Messages or 1: Send Message"))
-            if index == 0:
-                print(self.message_buffer)
-            else:
-                for index, value in enumerate(self.request_types):
-                    print(f"{index}: '{value}'")
-                index = int(input("What type of message would you like to send: "))
-
-                if(self.request_types[index] == 'public_chat'):
-                    message = str(input("Enter the message: "))
-                    self.request.public_chat(message)
-                elif(self.request_types[index] == 'chat'):
-                    users = list(self.user_list.keys())
-                    for index, value in enumerate(users):
-                        if self.user_list[value] == f"{self.host}:{self.port}":
-                            continue
-                        print(f"{index}: '{value}'")
-                    recipients_string = str(input("Which users you like to communicate with (comma seperated): "))
-                    recipients_string = recipients_string.replace(" ", "")  # Remove spaces
-                    recipients_indices = recipients_string.split(",")       # Split by comma
-                    recipients = []                                         # Prepare recipient list
-
-                    # Loop through each index provided by the user and add the corresponding user
-                    for i in recipients_indices:
-                        try:
-                            recipients.append(users[int(i)])  # Convert the index to int and get the user
-                        except (ValueError, IndexError):
-                            print(f"Invalid user index: {i}")  # Handle invalid input
-                            continue
-                    message = str(input("Enter the message: "))
-                    self.request.chat(message, *recipients)
-                else: print("Sorry, that isn't a valid option")
+        self.client_cli.run()
 
 
 
