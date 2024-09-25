@@ -16,10 +16,10 @@ import argparse
 import socketio
 from flask import Flask
 from flask_socketio import SocketIO
-from message_utils import make_signed_data_msg
-from server_events import ServerEvent
+from libs.message_utils import make_signed_data_msg
+from server.server_events import ServerEvent
 from socketio.exceptions import ConnectionError as ConnectionErrorSocketIO, SocketIOError
-from file_routes import routes_bp, MAX_FILE_SIZE
+from server.file_routes import routes_bp, MAX_FILE_SIZE
 
 class Server:
     """Class representing the server for the OLAF-Neighborhood protocol.

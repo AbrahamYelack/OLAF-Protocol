@@ -7,9 +7,9 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), 'libs')))
 import argparse
 import threading
 from crypto_utils import generate_private_key
-from client_events import Event
-from client_cli import ClientCLI
-from request import Request
+from client.client_events import Event
+from client.client_cli import ClientCLI
+from client.request import Request
 import socketio
 
 class Client:
