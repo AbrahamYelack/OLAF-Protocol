@@ -13,7 +13,8 @@ Key functionalities:
 import base64
 from collections import namedtuple
 from message_utils import is_valid_message, process_data
-from crypto_utils import decrypt_symm_key, decrypt_message
+from crypto_utils import decrypt_symm_key, decrypt_message, base64_to_pem
+from message_utils import validate_signature
 
 # Object to store processed messages on the client side
 Msg = namedtuple('Msg', ['text', 'sender', 'participants'])
@@ -63,39 +64,47 @@ class Event:
                     self.client.user_list[client] = server['address']
         self.client.response_event.set()
 
-    def message(self, data):
+    def message(self, msg):
         """
         Processes incoming messages from the server.
 
         Args:
             data: The incoming message data.
         """
-        data = process_data(data).get('data')
-        if data is None:
+        processed_msg = process_data(msg)
+        if processed_msg.get("data") is None:
             print("Ignoring message due to error")
             return
 
+        data = processed_msg.get("data")
         msg_type = data.get('type')
         if not is_valid_message(data, msg_type):
             print(f"Invalid message received of type {msg_type}")
             return
 
         if msg_type in {'chat', 'public_chat'}:
-            self.handle_chat(data)
+            self.handle_chat(processed_msg)
         else:
             print("Unknown message type received")
 
-    def handle_chat(self, data):
+    def handle_chat(self, msg):
         """
         Handles chat messages received from the server.
 
         Args:
             data: The chat message data.
         """
-        if data['type'] == "public_chat":
-            msg = Msg(data['message'], data['sender'], ["Public"])
+        if msg['data']['type'] == "public_chat":
+            msg = Msg(msg['data']['message'], msg['data']['sender'], ["Public"])
             self.client.message_buffer.append(msg)
         else:
+
+            # Validate signature
+            if not validate_signature(msg['signature'], msg['data'], msg['counter'], list(self.client.user_list.keys())):
+                print("Received a message that has an invalid signature, dropping message")
+                return
+
+            data = msg.get("data")
             encrypted_chat = data["chat"]
             iv = data["iv"]
             chat = None

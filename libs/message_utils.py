@@ -6,6 +6,7 @@ for use by both the Client and Server implementations of the OLAF-Neighbourhood 
 import base64
 import json
 import hashlib
+from crypto_utils import sign_data
 
 # Required fields for each message type
 fields = {
@@ -21,7 +22,7 @@ fields = {
     'server_hello': ['type', 'sender']
 }
 
-def create_signature(msg_data, counter):
+def create_signature(msg_data, counter, private_key):
     """
     Creates a base64-encoded SHA-256 signature for the given message data and counter.
 
@@ -33,17 +34,23 @@ def create_signature(msg_data, counter):
         str: A base64-encoded signature.
     """
     msg_data_json = json.dumps(msg_data)
-    msg_data_json_bytes = msg_data_json.encode('utf-8')
-    msg_data_json_base64 = base64.b64encode(msg_data_json_bytes)
-    counter_base64 = base64.b64encode(counter.encode('utf-8'))
 
-    sha256_hash = hashlib.sha256()
-    sha256_hash.update(msg_data_json_base64 + counter_base64)
-    binary_signature = sha256_hash.digest()
-    base64_signature = base64.b64encode(binary_signature).decode('utf-8')
-    return base64_signature
+    msg_data_counter = msg_data_json + counter
 
-def make_signed_data_msg(msg_data, counter):
+    signature = sign_data(private_key, msg_data_counter)
+    base64_signature = base64.b64encode(signature)
+
+    return base64_signature.decode('utf-8')
+
+def validate_signature(signature, data, counter, *public_keys):
+    is_valid = False
+    for public_key in public_keys:
+        is_valid = signature == create_signature(data, counter, public_key)
+        if is_valid:
+            break
+    return is_valid
+
+def make_signed_data_msg(msg_data, counter, private_key):
     """
     Creates a signed data message in JSON format.
 
@@ -54,7 +61,7 @@ def make_signed_data_msg(msg_data, counter):
     Returns:
         str: A JSON-formatted signed data message.
     """
-    signature = create_signature(msg_data, counter)
+    signature = create_signature(msg_data, counter, private_key)
     msg = {
         'type': 'signed_data',
         'data': msg_data,
@@ -77,11 +84,6 @@ def is_valid_message(msg, msg_type):
     required_fields = fields[msg_type]
     for field in required_fields:
         if field not in msg:
-            return False
-
-    if msg_type == 'signed_data':
-        signature = create_signature(msg['data'], str(msg['counter']))
-        if signature != msg['signature']:
             return False
 
     return True

@@ -47,7 +47,7 @@ class Request:
             'type': 'hello',
             'public_key': get_public_key(self.client.private_key)
         }
-        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce))
+        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce), self.client.private_key)
 
         print("Requesting service from server")
         self.client.socket_io.emit("hello", signed_hello_msg)
@@ -80,7 +80,7 @@ class Request:
             'sender': fingerprint,
             'message': str(message_text)
         }
-        public_chat_msg = make_signed_data_msg(public_chat_data, str(self.client.nonce))
+        public_chat_msg = make_signed_data_msg(public_chat_data, str(self.client.nonce), self.client.private_key)
         self.client.nonce += 1
 
         print("Sending public chat")
@@ -124,7 +124,7 @@ class Request:
             'chat': encrypted_message
         }
 
-        chat_message = make_signed_data_msg(data, str(self.client.nonce))
+        chat_message = make_signed_data_msg(data, str(self.client.nonce), self.client.private_key)
         self.client.nonce += 1
         print("Sending chat")
         self.client.socket_io.emit("message", chat_message)

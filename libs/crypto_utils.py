@@ -196,3 +196,13 @@ def encrypt_symm_keys(symm_key, *recipients):
         )
         encrypted_symm_keys.append(base64.b64encode(ciphertext).decode('utf-8'))
     return encrypted_symm_keys
+
+def sign_data(private_key, data):
+    return private_key.sign(
+        data,
+        rsa_padding.PSS(
+            mgf=rsa_padding.MGF1(hashes.SHA256()),
+            salt_length=rsa_padding.PSS.MAX_LENGTH
+        ),
+        hashes.SHA256()
+    )
