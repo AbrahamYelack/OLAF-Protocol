@@ -114,6 +114,7 @@ class Event:
 
             for encrypted_symm_key in data['symm_keys']:
                 symm_key = decrypt_symm_key(encrypted_symm_key, self.client.private_key)
+                if not symm_key: continue
                 chat = decrypt_message(symm_key, encrypted_chat, base64.b64decode(iv.encode('utf-8')))
                 if chat:
                     break
