@@ -60,6 +60,9 @@ class Server:
         self.port = port
         self.event_handler = ServerEvent(self)
 
+		# put self in connected_servers list
+        self.connected_servers[f"{self.host}:{self.port}"] = self.socketio
+
         # Event handlers for socket events
         self.socketio.on_event('connect', self.event_handler.connect)
         self.socketio.on_event('disconnect', self.event_handler.disconnect)
@@ -87,7 +90,13 @@ class Server:
             else:
                 print(f"Couldn't find {dest} in connected server list")
         else:
-            self.socketio.send(data, room=dest)
+            if dest == 'client':
+                # send to all clients
+                for client in self.client_list:
+                    self.socketio.send(data, room=client)
+            else:
+                # send to specific client
+                self.socketio.send(data, room=dest)
 
     def connect_to_servers(self):
         """Connects to listed servers and sends a hello message."""
