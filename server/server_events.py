@@ -295,6 +295,9 @@ class ServerEvent:
             for server in self.server.connected_servers.keys():
                 print(f"Forwarding to {server}")
                 self.server.send(msg, 'Server', server)
+			
+			# also send to connected clients
+            self.server.send(msg, 'Client', 'client')
         else:
             print(f"Received public_chat message from server, "
                 "forwarding to all clients")

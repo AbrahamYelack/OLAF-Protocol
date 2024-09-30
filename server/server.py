@@ -61,9 +61,6 @@ class Server:
         self.port = port
         self.event_handler = ServerEvent(self)
 
-		# put self in connected_servers list
-        self.connected_servers[f"{self.host}:{self.port}"] = self.socketio
-
         # Event handlers for socket events
         self.socketio.on_event('connect', self.event_handler.connect)
         self.socketio.on_event('disconnect', self.event_handler.disconnect)
