@@ -101,10 +101,10 @@ class ClientCLI:
 
     def run(self):
         while(True):
-            index = int(input("0-View Messages or 1-Send Message: "))
+            index = int(input("0-View Messages or 1-Send Message or 2-List Users: "))
             if index == 0:
                 print(self.client.message_buffer)
-            else:
+            elif index == 1:
                 self.print_options()
                 index = int(input("What kind of message do you want to send?: "))
                 if self.client.request_types[index] == 'public_chat': self.handle_public_chat()
@@ -112,3 +112,8 @@ class ClientCLI:
                 elif self.client.request_types[index] == 'file_upload': self.handle_file_upload()
                 elif self.client.request_types[index] == 'file_download': self.handle_file_download()
                 else: print("Sorry, that isn't a valid option")
+            elif index == 2:
+                print(self.client.user_list)
+            else:
+                print("Sorry, that isn't a valid option")
+    

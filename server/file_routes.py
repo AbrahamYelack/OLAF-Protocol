@@ -1,6 +1,6 @@
 import os
 import uuid
-from flask import Blueprint, request, jsonify, send_from_directory, abort
+from flask import Blueprint, request, jsonify, abort
 
 # Create a blueprint for your routes
 routes_bp = Blueprint('routes_bp', __name__)
@@ -50,10 +50,16 @@ def upload_file():
 @routes_bp.route('/<path:filename>', methods=['GET'])
 def get_file(filename):
     print(f"File download request received: {filename}")
-    file_path = os.path.join('uploads', filename)
-    if not os.path.isfile(file_path):
-        abort(404, description="File not found")
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+	# check if the file exists
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File not found'}), 404
+    
+    # return the file contents bytes
+    bytes = open(file_path, 'rb').read()
+    return bytes
+    
     
 
 # Error handling for large files
