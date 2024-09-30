@@ -164,9 +164,9 @@ def generate_key():
     """Generate a random 32-byte symmetric key.
 
     Returns:
-        A 32-byte symmetric key.
+        A 16-byte symmetric key.
     """
-    return os.urandom(32)
+    return os.urandom(16)
 
 def encrypt_symm_keys(symm_key, *recipients):
     """Encrypt a symmetric key for multiple recipients using their public keys.
