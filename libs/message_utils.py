@@ -35,7 +35,7 @@ def create_signature(msg_data, counter, private_key):
     """
     msg_data_json = json.dumps(msg_data)
 
-    msg_data_counter = str(msg_data_json + counter).encode('utf-8')
+    msg_data_counter = msg_data_json + counter
 
     signature = sign_data(private_key, msg_data_counter.encode('utf-8'))
     base64_signature = base64.b64encode(signature)
