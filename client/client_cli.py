@@ -98,14 +98,6 @@ class ClientCLI:
                 print(f"Error: Failed to download file. Server responded with status code {response.status_code}.")
         except requests.exceptions.RequestException as e:
             print(f"An error occurred while downloading the file: {e}")
-        
-    def handle_user_list(self):
-        # send a client_list_request to server
-        self.client.request.client_list_request()
-        self.client.response_event.wait()
-        print("Users:")
-        for user in self.client.user_list:
-            print(f"{user} - {self.client.user_list[user]}")
 
     def run(self):
         while(True):
@@ -121,7 +113,7 @@ class ClientCLI:
                 elif self.client.request_types[index] == 'file_download': self.handle_file_download()
                 else: print("Sorry, that isn't a valid option")
             elif index == 2:
-                self.handle_user_list()
+                print(self.client.user_list)
             else:
                 print("Sorry, that isn't a valid option")
     
