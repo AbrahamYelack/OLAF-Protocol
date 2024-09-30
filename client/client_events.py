@@ -119,17 +119,13 @@ class Event:
                 if chat:
                     break
             if chat is None:
-                print("""Couldn't decrypt chat segment, assuming
-                it is not addressed to me and dropping message""")
                 return
             
             if chat.get('chat') is None:
-                print("Chat message decrypted but is invalid, dropping message")
                 return
             
             chat = chat.get('chat')
             if not is_valid_message(chat, 'chat_segment'):
-                print("Chat message decrypted but is invalid, dropping message")
                 return
 
             msg = Msg(chat['message'], chat['participants'][0], chat['participants'][1:])

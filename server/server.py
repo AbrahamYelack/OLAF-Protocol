@@ -36,7 +36,7 @@ class Server:
         client_list: List of connected clients.
     """
 
-    server_list = ["localhost:4679", "localhost:4678"]
+    server_list = ["localhost:4679", "localhost:4678", "localhost:4677"]
 
     def __init__(self, host, port):
         """Initializes the Server with the given host and port.
