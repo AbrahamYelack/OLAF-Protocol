@@ -196,6 +196,9 @@ class ServerEvent:
             destination_servers = data['destination_servers']
             print(destination_servers)
             for server_ip in destination_servers:
+                if(server_ip == f"{self.server.host}:{self.server.port}"):
+                    self.server.send(msg, "Client", 'client')
+                    continue
                 socket = self.server.connected_servers[server_ip]
                 socket.send(msg)
         elif sid in self.server.server_map:

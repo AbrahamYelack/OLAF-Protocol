@@ -7,6 +7,10 @@ import base64
 import json
 import hashlib
 from crypto_utils import sign_data
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.exceptions import InvalidSignature
+from crypto_utils import base64_to_pem
 
 # Required fields for each message type
 fields = {
@@ -42,13 +46,50 @@ def create_signature(msg_data, counter, private_key):
 
     return base64_signature.decode('utf-8')
 
-def validate_signature(signature, data, counter, *public_keys):
-    is_valid = False
-    for public_key in public_keys:
-        is_valid = signature == create_signature(data, counter, public_key)
-        if is_valid:
-            break
-    return is_valid
+def validate_signature(signature, data, counter, public_keys):
+    """
+    Validates the provided RSA-PSS signature using the given public keys.
+
+    Args:
+        signature: The RSA-PSS signature to be verified.
+        data: The original data that was signed.
+        counter: A counter or nonce used as part of the data.
+        public_keys: The public keys to use for verification.
+
+    Returns:
+        True if the signature is valid with any of the public keys, False otherwise.
+    """
+        # Convert msg_data to a JSON string and concatenate with the counter
+    msg_data_json = json.dumps(data)
+    msg_data_counter = (msg_data_json + counter).encode('utf-8')  # Encode to bytes
+
+    # Decode the base64-encoded signature to bytes
+    signature_bytes = base64.b64decode(signature)
+
+    # Iterate over each public key and try to verify the signature
+    for public_key_pem in public_keys:
+        try:
+            # Convert the base64-encoded public key to PEM format and load it
+            public_key = base64_to_pem(public_key_pem)
+
+            # Verify the RSA-PSS signature using the public key
+            public_key.verify(
+                signature_bytes,  # Signature should be in bytes
+                msg_data_counter,  # Data should also be in bytes
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),  # Mask generation function (MGF1 with SHA-256)
+                    salt_length=padding.PSS.MAX_LENGTH  # Use PSS.MAX_LENGTH to match the signing process
+                ),
+                hashes.SHA256()  # SHA-256 digest algorithm
+            )
+            # If no exception is raised, the signature is valid
+            return True
+        except InvalidSignature:
+            # If the signature is invalid for this public key, continue to the next one
+            continue
+
+    # If none of the public keys validate the signature, return False
+    return False
 
 def make_signed_data_msg(msg_data, counter, private_key):
     """

@@ -95,6 +95,9 @@ class Event:
             data: The chat message data.
         """
         if msg['data']['type'] == "public_chat":
+            if not validate_signature(msg['signature'], msg['data'], msg['counter'], list(self.client.user_list.keys())):
+                print("Received a message that has an invalid signature, dropping message")
+                return
             msg = Msg(msg['data']['message'], msg['data']['sender'], ["Public"])
             self.client.message_buffer.append(msg)
         else:

@@ -1,5 +1,7 @@
 import requests
 
+from crypto_utils import get_public_key
+
 class ClientCLI:
 
     def __init__(self, client):
@@ -15,22 +17,38 @@ class ClientCLI:
 
     def handle_chat(self):
         users = list(self.client.user_list.keys())
-        for index, value in enumerate(users):
-            if self.client.user_list[value] == f"{self.client.host}:{self.client.port}":
+        
+        # Ensure there are users to chat with
+        if not users:
+            print("No users available to chat.")
+            return
+
+        # Display users with their public keys
+        for index, user in enumerate(users):
+            if(user == get_public_key(self.client.private_key)):
                 continue
-            print(f"{index}: '{value}'")
-        recipients_string = str(input("Which users you like to communicate with (comma seperated): "))
+            print(f"{index}: {user}")
+
+        # Get recipients from user input
+        recipients_string = str(input("Which users would you like to communicate with (comma-separated indices): "))
         recipients_string = recipients_string.replace(" ", "")
-        recipients_indices = recipients_string.split(",") 
+        recipients_indices = recipients_string.split(",")
         recipients = []
 
         # Loop through each index provided by the user and add the corresponding user
         for i in recipients_indices:
             try:
-                recipients.append(users[int(i)])
+                recipients.append(users[int(i)])  # Append the selected user based on index
             except (ValueError, IndexError):
                 print(f"Invalid user index: {i}")
                 continue
+
+        # If no valid recipients are selected
+        if not recipients:
+            print("No valid recipients selected.")
+            return
+
+        # Get the message to send
         message = str(input("Enter the message: "))
         self.client.request.chat(message, *recipients)
 
