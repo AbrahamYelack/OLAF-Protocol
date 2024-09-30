@@ -98,13 +98,21 @@ class ClientCLI:
                 print(f"Error: Failed to download file. Server responded with status code {response.status_code}.")
         except requests.exceptions.RequestException as e:
             print(f"An error occurred while downloading the file: {e}")
+        
+    def handle_user_list(self):
+        # send a client_list_request to server
+        self.client.request.client_list_request()
+        self.client.response_event.wait()
+        print("Users:")
+        for user in self.client.user_list:
+            print(f"{user} - {self.client.user_list[user]}")
 
     def run(self):
         while(True):
-            index = int(input("0-View Messages or 1-Send Message: "))
+            index = int(input("0-View Messages or 1-Send Message or 2-List Users: "))
             if index == 0:
                 print(self.client.message_buffer)
-            else:
+            elif index == 1:
                 self.print_options()
                 index = int(input("What kind of message do you want to send?: "))
                 if self.client.request_types[index] == 'public_chat': self.handle_public_chat()
@@ -112,3 +120,8 @@ class ClientCLI:
                 elif self.client.request_types[index] == 'file_upload': self.handle_file_upload()
                 elif self.client.request_types[index] == 'file_download': self.handle_file_download()
                 else: print("Sorry, that isn't a valid option")
+            elif index == 2:
+                self.handle_user_list()
+            else:
+                print("Sorry, that isn't a valid option")
+    
