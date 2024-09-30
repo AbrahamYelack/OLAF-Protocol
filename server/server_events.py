@@ -295,15 +295,13 @@ class ServerEvent:
             for server in self.server.connected_servers.keys():
                 print(f"Forwarding to {server}")
                 self.server.send(msg, 'Server', server)
-			
-			# also send to connected clients
             self.server.send(msg, 'Client', 'client')
-        else:
+        elif sid in self.server.server_map:
             print(f"Received public_chat message from server, "
                 "forwarding to all clients")
             self.server.send(msg, 'Client', 'client')
-        # else:
-        #     print("Received public_chat message from an unknown connection, dropping message")
+        else:
+            print("Received public_chat message from an unknown connection, dropping message")
 
     def server_hello(self, msg):
         """Handle a hello message from a server.
