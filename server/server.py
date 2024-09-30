@@ -49,6 +49,7 @@ class Server:
         self.app.register_blueprint(routes_bp)
         self.app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
         self.socketio = SocketIO(self.app, async_mode='eventlet')
+        self.private_key = generate_private_key()
         self.server_map = {}
         self.connected_servers = {}
         self.nonce = 1
@@ -123,7 +124,7 @@ class Server:
         }
 
         for server_ip in list(self.connected_servers.keys()):
-            server_hello = make_signed_data_msg(server_hello_data, str(self.nonce))
+            server_hello = make_signed_data_msg(server_hello_data, str(self.nonce), self.private_key)
             self.nonce += 1
             print(f"Sending hello message to {server_ip}")
             self.connected_servers[server_ip].send(server_hello)
