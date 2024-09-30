@@ -9,8 +9,8 @@ import json
 from socketio.exceptions import ConnectionError as ConnectionErrorSocketIO, SocketIOError
 from flask import request
 from flask_socketio import emit, join_room
-from libs.message_utils import is_valid_message, process_data, make_signed_data_msg
-from libs.crypto_utils import base64_to_pem, pem_to_base64
+from message_utils import is_valid_message, process_data, make_signed_data_msg
+from crypto_utils import base64_to_pem, pem_to_base64
 
 class ServerEvent:
     """Handles server events for managing connections and messaging."""

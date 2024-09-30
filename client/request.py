@@ -10,9 +10,9 @@ The 'data' field of a 'signed_data' message can have the following types:
 - 'public_chat': A broadcasted message.
 """
 
-from libs.message_utils import make_signed_data_msg
-from libs.crypto_utils import get_public_key, get_fingerprint
-from libs.crypto_utils import generate_key, encrypt_message, encrypt_symm_keys
+from message_utils import make_signed_data_msg
+from crypto_utils import get_public_key, get_fingerprint
+from crypto_utils import generate_key, encrypt_message, encrypt_symm_keys
 
 class Request:
     """
