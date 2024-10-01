@@ -1,30 +1,28 @@
 """
-This module encapsulates the Event class, which handles the client-side events
-for the OLAF-Neighbourhood protocol. It includes methods for processing various
-events such as connecting to the server, receiving user lists, and handling
-messages. The Event class manages the interaction between the client and server,
-ensuring that messages are processed appropriately based on their types.
+This module encapsulates the logic for processing client-side events
+for the OLAF-Neighbourhood protocol.
 
 Key functionalities:
-- Connecting to the server and handling connection events.
+- Event handlers for connection and hello confirmation responses from the 
+  parent server
 - Processing incoming messages, including chat and public chat types.
 - Maintaining a buffer of messages for client-side access.
 """
+
 import base64
 from collections import namedtuple
-from message_utils import is_valid_message, process_data
-from crypto_utils import decrypt_symm_key, decrypt_message, base64_to_pem
-from message_utils import validate_signature
+from message_utils import is_valid_message, process_data, validate_signature
+from crypto_utils import decrypt_symm_key, decrypt_message, get_fingerprint
 
 # Object to store processed messages on the client side
 Msg = namedtuple('Msg', ['text', 'sender', 'participants'])
 
 class Event:
     """
-    Handles events related to client-server communication.
+    Handles events related triggered/sent from the parent Server to the Client
 
     Attributes:
-        client: An instance of the Client class to manage socket communication.
+        client: An instance of the Client class in which the class is handling 
     """
 
     def __init__(self, client):
@@ -53,15 +51,16 @@ class Event:
         Args:
             data: The data containing the list of clients and their server addresses.
         """
-
         data = process_data(data)
+        if not data:
+            print("No data received in client list")
+            return
 
-        json_server_list = data.get('servers') if data else None
-
-        if json_server_list:
-            for server in json_server_list:
-                for client in server['clients']:
-                    self.client.user_list[client] = server['address']
+        server_list = data.get('servers')
+        if server_list:
+            for server in server_list:
+                for client_public_key in server.get('clients', []):
+                    self.client.user_list[client_public_key] = server['address']
         self.client.response_event.set()
 
     def message(self, msg):
@@ -69,11 +68,11 @@ class Event:
         Processes incoming messages from the server.
 
         Args:
-            data: The incoming message data.
+            msg: The incoming message data.
         """
         processed_msg = process_data(msg)
-        if processed_msg.get("data") is None:
-            print("Ignoring message due to error")
+        if not processed_msg or not processed_msg.get("data"):
+            print("Ignoring message due to error in processing")
             return
 
         data = processed_msg.get("data")
@@ -85,68 +84,115 @@ class Event:
         if msg_type in {'chat', 'public_chat'}:
             self.handle_chat(processed_msg)
         else:
-            print("Unknown message type received")
+            print(f"Unknown message type received: {msg_type}")
 
     def handle_chat(self, msg):
         """
         Handles chat messages received from the server.
 
         Args:
-            data: The chat message data.
+            msg: The chat message data.
         """
-        if msg['data']['type'] == "public_chat":
-            if not validate_signature(msg['signature'], msg['data'], msg['counter'], list(self.client.user_list.keys())):
-                print("Received a message that has an invalid signature, dropping message")
-                return
-            
-            # Ensure counter of message is greater than the counter of the previous message
-            # received from the same sender
-            counter = int(msg.get("counter"))
-            sender_public_key = msg['data']['public_key']
-            sender_prev_counter = self.client.user_counter_map.get(get_fingerprint(sender_public_key))
-            if sender_prev_counter and counter <= sender_prev_counter:
-                print("Received a message with invalid counter")
-                return
-            self.client.user_counter_map[get_fingerprint(sender_public_key)] = counter
+        # Validate signature
+        if not validate_signature(
+            msg['signature'],
+            msg['data'],
+            msg['counter'],
+            list(self.client.user_list.keys())
+        ):
+            print("Received a message with an invalid signature, dropping message")
+            return
 
-            msg = Msg(msg['data']['message'], msg['data']['sender'], ["Public"])
-            self.client.message_buffer.append(msg)
+        counter = int(msg.get("counter"))
+        msg_type = msg['data']['type']
+
+        if msg_type == "public_chat":
+            self.handle_public_chat(msg, counter)
         else:
+            self.handle_private_chat(msg, counter)
 
-            # Validate signature
-            if not validate_signature(msg['signature'], msg['data'], msg['counter'], list(self.client.user_list.keys())):
-                print("Received a message that has an invalid signature, dropping message")
-                return
+    def handle_public_chat(self, msg, counter):
+        """
+        Handles public chat messages.
 
-            data = msg.get("data")
-            encrypted_chat = data["chat"]
-            iv = data["iv"]
-            chat = None
+        Args:
+            msg: The chat message data.
+            counter: The counter value from the message.
+        """
+        sender_public_key = msg['data']['public_key']
+        sender_fingerprint = get_fingerprint(sender_public_key)
+        if not self.check_and_update_counter(sender_fingerprint, counter):
+            return
 
-            for encrypted_symm_key in data['symm_keys']:
-                symm_key = decrypt_symm_key(encrypted_symm_key, self.client.private_key)
-                if not symm_key: continue
-                chat = decrypt_message(symm_key, encrypted_chat, base64.b64decode(iv.encode('utf-8')))
-                if chat:
+        msg_obj = Msg(
+            text=msg['data']['message'],
+            sender=msg['data']['sender'],
+            participants=["Public"]
+        )
+        self.client.message_buffer.append(msg_obj)
+
+    def handle_private_chat(self, msg, counter):
+        """
+        Handles private chat messages.
+
+        Args:
+            msg: The chat message data.
+            counter: The counter value from the message.
+        """
+        data = msg.get("data")
+        encrypted_chat = data.get("chat")
+        iv = data.get("iv")
+        if not encrypted_chat or not iv:
+            print("Invalid chat data or IV")
+            return
+
+        chat = None
+        for encrypted_symm_key in data.get('symm_keys', []):
+            symm_key = decrypt_symm_key(encrypted_symm_key, self.client.private_key)
+            if not symm_key:
+                continue
+            try:
+                decrypted_data = decrypt_message(
+                    symm_key,
+                    encrypted_chat,
+                    base64.b64decode(iv.encode('utf-8'))
+                )
+                if decrypted_data:
+                    chat = decrypted_data.get('chat')
                     break
-            if chat is None:
-                return
-            
-            if chat.get('chat') is None:
-                return
-            
-            chat = chat.get('chat')
-            if not is_valid_message(chat, 'chat_segment'):
-                return
+            except Exception as e:
+                print(f"Error during decryption: {e}")
+                continue
 
-            # Ensure counter of message is greater than the counter of the previous message
-            # received from the same sender
-            counter = int(msg.get("counter"))
-            sender_prev_counter = self.client.user_counter_map.get(chat['participants'][0])
-            if sender_prev_counter and counter <= sender_prev_counter:
-                print("Received a message with invalid counter")
-                return
-            self.client.user_counter_map[chat['participants'][0]] = counter
+        if not chat or not is_valid_message(chat, 'chat_segment'):
+            print("Invalid or missing chat segment")
+            return
 
-            msg = Msg(chat['message'], chat['participants'][0], chat['participants'][1:])
-            self.client.message_buffer.append(msg)        
+        sender_id = chat['participants'][0]
+        if not self.check_and_update_counter(sender_id, counter):
+            return
+
+        msg_obj = Msg(
+            text=chat['message'],
+            sender=sender_id,
+            participants=chat['participants'][1:]
+        )
+        self.client.message_buffer.append(msg_obj)
+
+    def check_and_update_counter(self, sender_id, counter):
+        """
+        Checks and updates the message counter for a sender.
+
+        Args:
+            sender_id: The identifier of the sender (e.g., fingerprint or participant ID).
+            counter: The counter value from the message.
+
+        Returns:
+            bool: True if the counter is valid and updated, False otherwise.
+        """
+        sender_prev_counter = self.client.user_counter_map.get(sender_id)
+        if sender_prev_counter is not None and counter <= sender_prev_counter:
+            print("Received a message with an invalid or outdated counter")
+            return False
+        self.client.user_counter_map[sender_id] = counter
+        return True
