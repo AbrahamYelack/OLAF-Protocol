@@ -53,7 +53,6 @@ class Server:
         self.server_map = {}
         self.connected_servers = {}
         self.nonce = 1
-        self.user_nonce_map = {}
         self.user_list = {}
         self.client_list = {}
 

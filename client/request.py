@@ -48,7 +48,7 @@ class Request:
             'public_key': get_public_key(self.client.private_key)
         }
         signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce), self.client.private_key)
-
+        self.client.nonce+=1
         print("Requesting service from server")
         self.client.socket_io.emit("hello", signed_hello_msg)
         self.client.response_event.clear()

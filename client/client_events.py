@@ -98,6 +98,17 @@ class Event:
             if not validate_signature(msg['signature'], msg['data'], msg['counter'], list(self.client.user_list.keys())):
                 print("Received a message that has an invalid signature, dropping message")
                 return
+            
+            # Ensure counter of message is greater than the counter of the previous message
+            # received from the same sender
+            counter = int(msg.get("counter"))
+            sender_public_key = msg['data']['public_key']
+            sender_prev_counter = self.client.user_counter_map.get(get_fingerprint(sender_public_key))
+            if sender_prev_counter and counter <= sender_prev_counter:
+                print("Received a message with invalid counter")
+                return
+            self.client.user_counter_map[get_fingerprint(sender_public_key)] = counter
+
             msg = Msg(msg['data']['message'], msg['data']['sender'], ["Public"])
             self.client.message_buffer.append(msg)
         else:
@@ -128,5 +139,14 @@ class Event:
             if not is_valid_message(chat, 'chat_segment'):
                 return
 
+            # Ensure counter of message is greater than the counter of the previous message
+            # received from the same sender
+            counter = int(msg.get("counter"))
+            sender_prev_counter = self.client.user_counter_map.get(chat['participants'][0])
+            if sender_prev_counter and counter <= sender_prev_counter:
+                print("Received a message with invalid counter")
+                return
+            self.client.user_counter_map[chat['participants'][0]] = counter
+
             msg = Msg(chat['message'], chat['participants'][0], chat['participants'][1:])
-            self.client.message_buffer.append(msg)
+            self.client.message_buffer.append(msg)        

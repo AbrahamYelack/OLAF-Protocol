@@ -122,6 +122,7 @@ def is_valid_message(msg, msg_type):
     Returns:
         bool: True if the message is valid, False otherwise.
     """
+    
     required_fields = fields[msg_type]
     for field in required_fields:
         if field not in msg:

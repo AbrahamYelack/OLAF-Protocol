@@ -45,6 +45,7 @@ class Client:
         self.private_key = generate_private_key()
         self.nonce = 1
         self.user_list = {}
+        self.user_counter_map = {}
         self.message_buffer = []
         self.download_links = {}
         self.event = Event(self)
