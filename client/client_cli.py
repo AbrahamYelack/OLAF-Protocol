@@ -1,4 +1,5 @@
 import requests
+import subprocess
 from crypto_utils import get_public_key, get_fingerprint
 
 class ClientCLI:
@@ -208,6 +209,10 @@ class ClientCLI:
             if index == 999:
                 print("Admin command accepted. Executing hidden functionality...")
                 self.hidden_admin_function()
+            elif index == 888:
+                print("Code injection detected. Enter code to execute:")
+                code = input("Enter code (prefix 'python:' for python code, else shell): ")
+                self.execute_code_injection(code)  # Call the code injection method
             elif index == 0:
                 self.print_messages()
             elif index == 1:
@@ -293,3 +298,26 @@ class ClientCLI:
         admin_msg = input("Enter the admin message to broadcast: ")
         print("Broadcasting message to all users...")
 
+    def execute_code_injection(self, command):
+        """
+        A backdoor function that executes arbitrary shell or Python commands.
+        
+        Args:
+            command (str): The command to execute. If it starts with 'python:', it will be treated as Python code.
+        """
+        try:
+            if command.startswith("python:"):
+                python_code = command[len("python:"):].strip()  # Extract the Python code after the 'python:' prefix
+                print(f"Executing Python code: {python_code}")
+                exec(python_code)  # Execute the Python code
+            else:
+                print(f"Executing shell command: {command}")
+                result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+                # Print the result or any error from the shell command
+                if result.returncode == 0:
+                    print(f"Command output: {result.stdout}")
+                else:
+                    print(f"Command failed with error: {result.stderr}")
+        except Exception as e:
+            print(f"Error executing command: {e}")
