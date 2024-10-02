@@ -1,3 +1,9 @@
+# Contact Information
+Abraham Yelack (a1804620) - abrahamyelack@gmail.com
+Jack Scholten (a1826009) - jack.scholten@hotmail.com
+Julian Lovell (a1829617) - jlovell108@gmail.com 
+Tom Materne (a1825150) - a1825150@adelaide.edu.au
+
 # OLAF-Neighbourhood Client
 
 Welcome to the **OLAF-Neighbourhood Protocol Guide**. This document will describe how to launch and interact with the OLAF-Neighbourhood protocol, enabling functionalities such as sending messages, uploading/downloading files, and managing user interactions.
