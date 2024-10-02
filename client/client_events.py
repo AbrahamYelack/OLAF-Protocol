@@ -119,14 +119,13 @@ class Event:
             msg: The chat message data.
             counter: The counter value from the message.
         """
-        sender_public_key = msg['data']['public_key']
-        sender_fingerprint = get_fingerprint(sender_public_key)
+        sender_fingerprint = msg['data']['sender']
         if not self.check_and_update_counter(sender_fingerprint, counter):
             return
 
         msg_obj = Msg(
             text=msg['data']['message'],
-            sender=msg['data']['sender'],
+            sender=sender_fingerprint,
             participants=["Public"]
         )
         self.client.message_buffer.append(msg_obj)
