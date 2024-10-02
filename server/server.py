@@ -1,17 +1,8 @@
-"""
-This module contains the implementation of an OLAF-Neighborhood protocol Server.
-
-It manages connections between clients and servers using Flask and Flask-SocketIO.
-The server handles various events such as connections, disconnections, and message
-exchanges. It also provides utilities for signing messages and validating their integrity.
-
-Classes:
-    Server: Represents the server that handles socket connections and events.
-"""
-
+import logging
 import sys
 import os
 import json
+import re
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "libs")))
 import argparse
@@ -28,8 +19,19 @@ from socketio.exceptions import (
 from file_routes import routes_bp, MAX_FILE_SIZE
 
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
 class Server:
-    """Class representing the server for the OLAF-Neighborhood protocol.
+    """Class representing the server for the OLAF-Neighbourhood protocol.
 
     Attributes:
         app: Flask application instance.
@@ -77,6 +79,7 @@ class Server:
 
     def run(self):
         """Runs the Flask application with SocketIO."""
+        logger.info(f"Starting server on {self.host}:{self.port}")
         self.socketio.run(self.app, self.host, self.port)
 
     def send(self, data, recipient, dest):
@@ -91,7 +94,7 @@ class Server:
             if self.connected_servers.get(dest):
                 self.connected_servers[dest].send(data)
             else:
-                print(f"Couldn't find {dest} in connected server list")
+                logger.warning(f"Couldn't find {dest} in connected server list")
         else:
             if dest == "client":
                 # send to all clients
@@ -104,6 +107,9 @@ class Server:
     def connect_to_servers(self):
         """Connects to listed servers and sends a hello message."""
 
+        successful_connections = []
+        failed_connections = []
+
         # Connect to each listed server
         for server_ip in self.server_list:
             try:
@@ -111,15 +117,36 @@ class Server:
                 ip, port = server_ip.split(":")
                 port = int(port)
                 if port == self.port:
-                    continue
-                print(f"Attempting to connect to {server_ip}")
+                    continue  # Skip connecting to self
+                logger.info(f"Attempting to connect to {server_ip}")
                 url = f"ws://{ip}:{port}"
                 client_socket.connect(url)
                 self.connected_servers[server_ip] = client_socket
-            except (ConnectionErrorSocketIO, SocketIOError):
-                print(
-                    "Error occurred trying to connect to neighbor during server startup"
-                )
+                successful_connections.append(server_ip)
+            except (ConnectionErrorSocketIO, SocketIOError) as e:
+                error_msg = str(e)
+                # Extract the most relevant part of the error message using regex
+                match = re.search(r'\[WinError \d+\] (.+)', error_msg)
+                if match:
+                    concise_error = match.group(1)
+                else:
+                    # If regex doesn't match, use a generic message
+                    concise_error = "Connection failed."
+                logger.error(f"Could not connect to server at {server_ip}: {concise_error}")
+                failed_connections.append(server_ip)
+
+        # Summary of connection attempts
+        if successful_connections:
+            logger.info(
+                f"Successfully connected to {len(successful_connections)} server(s): {', '.join(successful_connections)}"
+            )
+        else:
+            logger.info("No servers connected successfully.")
+
+        if failed_connections:
+            logger.warning(
+                f"Failed to connect to {len(failed_connections)} server(s): {', '.join(failed_connections)}"
+            )
 
         # Send hello message to connected servers
         server_hello_data = {
@@ -132,7 +159,7 @@ class Server:
                 server_hello_data, str(self.nonce), self.private_key
             )
             self.nonce += 1
-            print(f"Sending hello message to {server_ip}")
+            logger.info(f"Sending hello message to {server_ip}")
             self.connected_servers[server_ip].send(server_hello)
 
         # Request for client list from each connected server
@@ -140,8 +167,11 @@ class Server:
 
         client_list_request = json.dumps(client_list_request)
         for server_ip in list(self.connected_servers.keys()):
-            print(f"Sending client list request to {server_ip}")
+            logger.info(f"Sending client list request to {server_ip}")
             self.connected_servers[server_ip].send(client_list_request)
+
+        # Indicate server startup success
+        logger.info(f"Server {self.host}:{self.port} startup success")
 
     def create_client_socket(self):
         """Creates and configures a SocketIO client socket.
@@ -154,12 +184,12 @@ class Server:
         @client_socket.event
         def connect():
             """Handle a new connection to a neighbor server."""
-            print("Successfully connected to neighbor server")
+            logger.info("Successfully connected to neighbor server")
 
         @client_socket.event
         def disconnect():
             """Handle disconnection from a neighbor server."""
-            print("Disconnected from neighbor server")
+            logger.warning("Disconnected from neighbor server")
 
         return client_socket
 

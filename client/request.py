@@ -103,9 +103,10 @@ class Request:
             recipients (tuple): A variable number of recipients for the chat message.
         """
         sender_fingerprint = get_fingerprint(get_public_key(self.client.private_key))
-        participants_list = [sender_fingerprint] + [
-            get_fingerprint(recipient) for recipient in recipients
-        ]
+        participants_list = [sender_fingerprint]
+        for recipient in recipients:
+            fingerprint = get_fingerprint(recipient)
+            participants_list.append(fingerprint)
 
         chat = {
             "chat": {
@@ -136,7 +137,7 @@ class Request:
             "destination_servers": destination_server_list,
             "iv": iv,
             "symm_keys": encrypted_symm_keys,
-            "chat": encrypted_message,  # Encrypted private message
+            "chat": encrypted_message,  # Encrypted private message sent
         }
 
         chat_message = make_signed_data_msg(

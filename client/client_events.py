@@ -20,11 +20,12 @@ from crypto_utils import (
     get_public_key,
 )
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Object to store processed messages on the client side
 Msg = namedtuple("Msg", ["text", "sender", "participants"])
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Event:
@@ -46,12 +47,12 @@ class Event:
 
     def connect(self):
         """Handles successful connection to the server."""
-        print("Successfully connected to server")
+        logger.info("Successfully connected to server")
         self.client.response_event.set()
 
     def hello(self):
         """Handles acknowledgment of service request from the server."""
-        print("Server accepted the request for service")
+        logger.info("Server accepted the request for service")
         self.client.response_event.set()
 
     def client_list(self, data):
@@ -63,7 +64,7 @@ class Event:
         """
         data = process_data(data)
         if not data:
-            print("No data received in client list")
+            logger.warning("No data received in client list")
             return
 
         server_list = data.get("servers")
@@ -82,19 +83,18 @@ class Event:
         """
         processed_msg = process_data(msg)
         if not processed_msg or not processed_msg.get("data"):
-            print("Ignoring message due to error in processing")
+            logger.warning("Ignoring message due to error in processing")
             return
 
-        data = processed_msg.get("data")
-        msg_type = data.get("type")
-        if not is_valid_message(data, msg_type):
-            print(f"Invalid message received of type {msg_type}")
+        msg_type = processed_msg.get("type")
+        if not is_valid_message(processed_msg, msg_type):
+            logger.warning(f"Invalid message received of type {msg_type}")
             return
 
-        if msg_type in {"chat", "public_chat"}:
+        if msg_type in {"chat", "public_chat", "signed_data"}:
             self.handle_chat(processed_msg)
         else:
-            print(f"Unknown message type received: {msg_type}")
+            logger.warning(f"Unknown message type received: {msg_type}")
 
     def handle_chat(self, msg):
         """
@@ -227,7 +227,7 @@ class Event:
         """
         sender_prev_counter = self.client.user_counter_map.get(sender_id)
         if sender_prev_counter is not None and counter <= sender_prev_counter:
-            print("Received a message with an invalid or outdated counter")
+            logger.warning("Received a message with an invalid or outdated counter")
             return False
         self.client.user_counter_map[sender_id] = counter
         return True

@@ -42,9 +42,6 @@ class Client:
             host (str): The server host.
             port (int): The server port.
         """
-
-        self.processed_message_ids = set()
-
         self.host = host
         self.port = port
 
@@ -65,6 +62,9 @@ class Client:
         self.event = Event(self)
         self.request = Request(self)
         self.client_cli = ClientCLI(self)
+
+        # Track processed message IDs to prevent duplicates
+        self.processed_message_ids = set()
 
         # Create the web socket client and attach the relevant
         # listeners/handlers defined in the Event class

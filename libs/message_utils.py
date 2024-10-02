@@ -9,18 +9,17 @@ while others focus on message formatting for transmission.
 import base64
 import json
 import hashlib
-import uuid
 from crypto_utils import sign_data
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.exceptions import InvalidSignature
 from crypto_utils import base64_to_pem
 
+import uuid  # Added import for generating unique message IDs
+
 # Required fields for each message type
-# Note: These fields are essential for proper message validation and help to enforce
-# message integrity within the protocol.
 fields = {
-    "signed_data": ["type", "data", "counter", "signature"],
+    "signed_data": ["type", "id", "data", "counter", "signature"],  # Added 'id'
     "client_update": ["type", "clients"],
     "public_chat": ["type", "sender", "message"],
     "client_update_request": ["type"],
@@ -43,6 +42,7 @@ def create_signature(msg_data, counter, private_key):
     Args:
         msg_data (dict): The message data to be signed.
         counter (str): A counter value to include in the signature.
+        private_key: The RSA private key object.
 
     Returns:
         str: A base64-encoded signature.
@@ -72,7 +72,7 @@ def validate_signature(signature, data, counter, public_keys):
         public_keys: The public keys to use for verification.
 
     Returns:
-        True if the signature is valid with any of the public keys, False otherwise.
+        bool: True if the signature is valid with any of the public keys, False otherwise.
     """
     # Convert msg_data to a JSON string and concatenate with the counter
     msg_data_json = json.dumps(data)
@@ -112,6 +112,9 @@ def validate_signature(signature, data, counter, public_keys):
 def make_signed_data_msg(msg_data, counter, private_key):
     """
     Creates a signed data message in JSON format with a unique ID.
+
+    This method ensures that each message sent is digitally signed and
+    includes a counter to prevent replay attacks.
 
     Args:
         msg_data (dict): The data to include in the message.
