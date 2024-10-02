@@ -1,9 +1,11 @@
 """
 This file encapsulates a Client entity within the OLAF-Neighbourhood protocol.
 """
+
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), 'libs')))
+
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "libs")))
 import argparse
 import threading
 from crypto_utils import generate_private_key
@@ -11,6 +13,7 @@ from client_events import Event
 from client_cli import ClientCLI
 from request import Request
 import socketio
+
 
 class Client:
     """
@@ -29,7 +32,7 @@ class Client:
     """
 
     response_event = threading.Event()
-    request_types = ['public_chat', 'chat', 'file_upload', 'file_download']
+    request_types = ["public_chat", "chat", "file_upload", "file_download"]
 
     def __init__(self, host, port):
         """
@@ -44,7 +47,7 @@ class Client:
 
         # Private key of the client (str-base64)
         self.private_key = generate_private_key()
-        # None/counter
+        # None/counter for tracking messages, including secure communication sequences
         self.nonce = 1
         # Map of public_key(str) to server_ip(str)
         self.user_list = {}
@@ -52,22 +55,21 @@ class Client:
         self.user_counter_map = {}
         # List of received Msg objects
         self.message_buffer = []
-        # Downlaod URLs of uploaded files
+        # Download URLs of uploaded files
         self.download_links = {}
 
-        # Event, Request and the CLI objects, CLI is run on client
-        # startup
+        # Event, Request and the CLI objects, CLI is run on client startup
         self.event = Event(self)
         self.request = Request(self)
         self.client_cli = ClientCLI(self)
 
-        # Create the web scoket client and attach the relevant 
+        # Create the web socket client and attach the relevant
         # listeners/handlers defined in the Event class
         self.socket_io = socketio.Client()
-        self.socket_io.on('connect', self.event.connect)
-        self.socket_io.on('hello', self.event.hello)
-        self.socket_io.on('client_list', self.event.client_list)
-        self.socket_io.on('message', self.event.message)
+        self.socket_io.on("connect", self.event.connect)
+        self.socket_io.on("hello", self.event.hello)
+        self.socket_io.on("client_list", self.event.client_list)
+        self.socket_io.on("message", self.event.message)
 
     def initialise(self):
         """
@@ -89,12 +91,12 @@ class Client:
 
 
 # Entry point to read in the host and port of the Server that the
-# client wishes to connect to, starts the intiialisation process and
+# client wishes to connect to, starts the initialisation process and
 # the CLI loop for user interaction
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', type=str, required=True, help='Hostname')
-    parser.add_argument('--port', type=int, required=True, help='Port')
+    parser.add_argument("--host", type=str, required=True, help="Hostname")
+    parser.add_argument("--port", type=int, required=True, help="Port")
     args = parser.parse_args()
 
     SERVER_HOST = args.host

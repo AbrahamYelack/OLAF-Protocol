@@ -8,10 +8,12 @@ exchanges. It also provides utilities for signing messages and validating their 
 Classes:
     Server: Represents the server that handles socket connections and events.
 """
+
 import sys
 import os
 import json
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), 'libs')))
+
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "libs")))
 import argparse
 import socketio
 from flask import Flask
@@ -19,8 +21,12 @@ from flask_socketio import SocketIO
 from message_utils import make_signed_data_msg
 from crypto_utils import generate_private_key
 from server_events import ServerEvent
-from socketio.exceptions import ConnectionError as ConnectionErrorSocketIO, SocketIOError
+from socketio.exceptions import (
+    ConnectionError as ConnectionErrorSocketIO,
+    SocketIOError,
+)
 from file_routes import routes_bp, MAX_FILE_SIZE
+
 
 class Server:
     """Class representing the server for the OLAF-Neighborhood protocol.
@@ -47,8 +53,8 @@ class Server:
         """
         self.app = Flask(__name__)
         self.app.register_blueprint(routes_bp)
-        self.app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
-        self.socketio = SocketIO(self.app, async_mode='eventlet')
+        self.app.config["MAX_CONTENT_LENGTH"] = MAX_FILE_SIZE
+        self.socketio = SocketIO(self.app, async_mode="eventlet")
         self.private_key = generate_private_key()
         self.server_map = {}
         self.connected_servers = {}
@@ -61,13 +67,13 @@ class Server:
         self.event_handler = ServerEvent(self)
 
         # Event handlers for socket events
-        self.socketio.on_event('connect', self.event_handler.connect)
-        self.socketio.on_event('disconnect', self.event_handler.disconnect)
-        self.socketio.on_event('hello', self.event_handler.hello)
-        self.socketio.on_event('client_list_request', self.event_handler.client_list_request)
-        self.socketio.on_event('message', self.event_handler.message)
-
-
+        self.socketio.on_event("connect", self.event_handler.connect)
+        self.socketio.on_event("disconnect", self.event_handler.disconnect)
+        self.socketio.on_event("hello", self.event_handler.hello)
+        self.socketio.on_event(
+            "client_list_request", self.event_handler.client_list_request
+        )
+        self.socketio.on_event("message", self.event_handler.message)
 
     def run(self):
         """Runs the Flask application with SocketIO."""
@@ -87,7 +93,7 @@ class Server:
             else:
                 print(f"Couldn't find {dest} in connected server list")
         else:
-            if dest == 'client':
+            if dest == "client":
                 # send to all clients
                 for client in self.client_list:
                     self.socketio.send(data, room=client)
@@ -98,43 +104,45 @@ class Server:
     def connect_to_servers(self):
         """Connects to listed servers and sends a hello message."""
 
-        # Connect
+        # Connect to each listed server
         for server_ip in self.server_list:
             try:
                 client_socket = self.create_client_socket()
-                ip, port = server_ip.split(':')
+                ip, port = server_ip.split(":")
                 port = int(port)
-                if port == self.port: 
+                if port == self.port:
                     continue
-                print(f'Attempting to connect to {server_ip}')
-                url = f'ws://{ip}:{port}'
+                print(f"Attempting to connect to {server_ip}")
+                url = f"ws://{ip}:{port}"
                 client_socket.connect(url)
                 self.connected_servers[server_ip] = client_socket
             except (ConnectionErrorSocketIO, SocketIOError):
-                print('Error ocurred trying to connect to neighbour during server startup')
+                print(
+                    "Error occurred trying to connect to neighbor during server startup"
+                )
 
-        # Send hello message
+        # Send hello message to connected servers
         server_hello_data = {
             "type": "server_hello",
-            "sender": f"{self.host}:{self.port}"
+            "sender": f"{self.host}:{self.port}",
         }
 
         for server_ip in list(self.connected_servers.keys()):
-            server_hello = make_signed_data_msg(server_hello_data, str(self.nonce), self.private_key)
+            server_hello = make_signed_data_msg(
+                server_hello_data, str(self.nonce), self.private_key
+            )
             self.nonce += 1
             print(f"Sending hello message to {server_ip}")
             self.connected_servers[server_ip].send(server_hello)
 
-        # Request for client list
-        client_list_request = {
-            "type": "client_update_request"
-        }
+        # Request for client list from each connected server
+        client_list_request = {"type": "client_update_request"}
 
         client_list_request = json.dumps(client_list_request)
         for server_ip in list(self.connected_servers.keys()):
             print(f"Sending client list request to {server_ip}")
             self.connected_servers[server_ip].send(client_list_request)
-            
+
     def create_client_socket(self):
         """Creates and configures a SocketIO client socket.
 
@@ -146,19 +154,20 @@ class Server:
         @client_socket.event
         def connect():
             """Handle a new connection to a neighbor server."""
-            print('Successfully connected to neighbour server')
+            print("Successfully connected to neighbor server")
 
         @client_socket.event
         def disconnect():
             """Handle disconnection from a neighbor server."""
-            print('Disconnected from neighbour server')
+            print("Disconnected from neighbor server")
 
         return client_socket
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', type=str, required=True, help='Hostname')
-    parser.add_argument('--port', type=int, required=True, help='Port')
+    parser.add_argument("--host", type=str, required=True, help="Hostname")
+    parser.add_argument("--port", type=int, required=True, help="Port")
     args = parser.parse_args()
     HOST = args.host
     PORT = args.port

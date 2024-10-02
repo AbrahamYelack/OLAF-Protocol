@@ -56,7 +56,7 @@ python server/server.py --host <HOST> --port <PORT>
 
 Once the server(s) are running, you can launch the Client.py file, specifying
 he host and port of the server you wish the client to connect to in place of 
-<HOST> and <PORT> respectively.
+<HOST> and <PORT> respectively. The server list can be viewed/edited in `server.py`.
 
 ```bash
 python client/client.py --host <HOST> --port <PORT>
