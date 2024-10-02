@@ -13,7 +13,7 @@ import base64
 import logging
 from collections import namedtuple
 from message_utils import is_valid_message, process_data, validate_signature
-from crypto_utils import decrypt_symm_key, decrypt_message, get_fingerprint
+from crypto_utils import decrypt_symm_key, decrypt_message, get_fingerprint, get_public_key
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -121,6 +121,12 @@ class Event:
         if msg_type == "public_chat":
             self.handle_public_chat(msg, counter)
         elif msg_type == "chat":
+            # Optional: Check if the message is sent by self
+            sender_fingerprint = msg["data"].get("sender")
+            own_fingerprint = get_fingerprint(get_public_key(self.client.private_key))
+            if sender_fingerprint == own_fingerprint:
+                logger.info("Received own message back. Skipping processing.")
+                return
             self.handle_private_chat(msg, counter)
         else:
             logger.warning(f"Unknown message type received: {msg_type}")
