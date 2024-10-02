@@ -99,14 +99,18 @@ def decrypt_symm_key(encoded_encrypted_symm_key, private_key):
         The decrypted symmetric key.
     """
     encrypted_symm_key = base64.b64decode(encoded_encrypted_symm_key)
-    symm_key = private_key.decrypt(
-        encrypted_symm_key,
-        rsa_padding.OAEP(
-            mgf=rsa_padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+    try:
+        symm_key = private_key.decrypt(
+            encrypted_symm_key,
+            rsa_padding.OAEP(
+                mgf=rsa_padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
         )
-    )
+    except ValueError:
+        return None
+
     return symm_key
 
 def decrypt_message(decrypted_symm_key, message, iv):

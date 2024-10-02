@@ -19,7 +19,7 @@ class Client:
     Attributes:
         host (str): The server host.
         port (int): The server port.
-        private_key: The client's private key.
+        private_key (str-base64): The client's private key.
         nonce (int): A counter for unique requests.
         user_list (dict): A dictionary to store users.
         message_buffer (list): A list to buffer messages.
@@ -42,15 +42,27 @@ class Client:
         self.host = host
         self.port = port
 
+        # Private key of the client (str-base64)
         self.private_key = generate_private_key()
+        # None/counter
         self.nonce = 1
+        # Map of public_key(str) to server_ip(str)
         self.user_list = {}
+        # Map of fingerprint(str) to counter/nonce(int)
+        self.user_counter_map = {}
+        # List of received Msg objects
         self.message_buffer = []
+        # Downlaod URLs of uploaded files
         self.download_links = {}
+
+        # Event, Request and the CLI objects, CLI is run on client
+        # startup
         self.event = Event(self)
         self.request = Request(self)
         self.client_cli = ClientCLI(self)
 
+        # Create the web scoket client and attach the relevant 
+        # listeners/handlers defined in the Event class
         self.socket_io = socketio.Client()
         self.socket_io.on('connect', self.event.connect)
         self.socket_io.on('hello', self.event.hello)
@@ -60,7 +72,8 @@ class Client:
     def initialise(self):
         """
         Starts the initialization process for the client.
-        Connects to the server and sends initial requests.
+        Connects to the server and sends mandatory startup
+        requests.
         """
         print("!------Starting Initialisation Process------!")
         self.request.connect()
@@ -70,14 +83,14 @@ class Client:
 
     def run(self):
         """
-        Runs the client, allowing for user input to send messages and display buffered messages.
+        Runs the client, allowing for user input to send messages, view users and display buffered messages.
         """
         self.client_cli.run()
 
 
-
-
-
+# Entry point to read in the host and port of the Server that the
+# client wishes to connect to, starts the intiialisation process and
+# the CLI loop for user interaction
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', type=str, required=True, help='Hostname')

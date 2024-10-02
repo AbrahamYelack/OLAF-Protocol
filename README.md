@@ -1,3 +1,9 @@
+# Contact Information
+Abraham Yelack (a1804620) - abrahamyelack@gmail.com
+Jack Scholten (a1826009) - jack.scholten@hotmail.com
+Julian Lovell (a1829617) - jlovell108@gmail.com 
+Tom Materne (a1825150) - a1825150@adelaide.edu.au
+
 # Advanced Secure Protocol Design
 ## Quick Links
 [Main Assignment Page](https://myuni.adelaide.edu.au/courses/95573/assignments/397468)  

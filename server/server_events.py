@@ -196,6 +196,9 @@ class ServerEvent:
             destination_servers = data['destination_servers']
             print(destination_servers)
             for server_ip in destination_servers:
+                if(server_ip == f"{self.server.host}:{self.server.port}"):
+                    self.server.send(msg, "Client", 'client')
+                    continue
                 socket = self.server.connected_servers[server_ip]
                 socket.send(msg)
         elif sid in self.server.server_map:
@@ -337,6 +340,8 @@ class ServerEvent:
                     "sender": f"{self.server.host}:{self.server.port}"
                 }
                 server_hello = make_signed_data_msg(server_hello_data, str(self.server.nonce), self.server.private_key)
+                self.server.nonce+=1
+                
                 print(f"Sending hello message to {server_ip}")
                 self.server.connected_servers[server_ip].send(server_hello)
 
@@ -352,4 +357,5 @@ class ServerEvent:
                 print(f'Error ocurred trying to connect to neighbour after server hello: {e}')
         else:
             self.server.server_map[sid] = server_ip
+
 
