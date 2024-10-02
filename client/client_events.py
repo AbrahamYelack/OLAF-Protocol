@@ -10,9 +10,13 @@ Key functionalities:
 """
 
 import base64
+import logging
 from collections import namedtuple
 from message_utils import is_valid_message, process_data, validate_signature
 from crypto_utils import decrypt_symm_key, decrypt_message, get_fingerprint
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Object to store processed messages on the client side
 Msg = namedtuple("Msg", ["text", "sender", "participants"])
@@ -94,23 +98,32 @@ class Event:
         Args:
             msg: The chat message data.
         """
+        # Extract message ID to prevent duplicates
+        msg_id = msg.get("id")
+        if msg_id in self.client.processed_message_ids:
+            logger.info(f"Duplicate message {msg_id} received. Ignoring.")
+            return
+        self.client.processed_message_ids.add(msg_id)
+
         # Validate the integrity of the message's signature
         if not validate_signature(
-            msg["signature"],
-            msg["data"],
-            msg["counter"],
+            msg.get("signature"),
+            msg.get("data"),
+            msg.get("counter"),
             list(self.client.user_list.keys()),
         ):
-            print("Received a message with an invalid signature, dropping message")
+            logger.warning("Received a message with an invalid signature, dropping message")
             return
 
         counter = int(msg.get("counter"))
-        msg_type = msg["data"]["type"]
+        msg_type = msg["data"].get("type")
 
         if msg_type == "public_chat":
             self.handle_public_chat(msg, counter)
-        else:
+        elif msg_type == "chat":
             self.handle_private_chat(msg, counter)
+        else:
+            logger.warning(f"Unknown message type received: {msg_type}")
 
     def handle_public_chat(self, msg, counter):
         """
@@ -133,7 +146,7 @@ class Event:
 
     def handle_private_chat(self, msg, counter):
         """
-        Handles private chat messages.
+        Handles private chat messages received from the server.
 
         Args:
             msg: The chat message data.
@@ -143,7 +156,7 @@ class Event:
         encrypted_chat = data.get("chat")
         iv = data.get("iv")
         if not encrypted_chat or not iv:
-            print("Invalid chat data or IV")
+            logger.warning("Invalid chat data or IV")
             return
 
         chat = None
@@ -155,15 +168,24 @@ class Event:
                 decrypted_data = decrypt_message(
                     symm_key, encrypted_chat, base64.b64decode(iv.encode("utf-8"))
                 )
-                if decrypted_data:
+                if decrypted_data and isinstance(decrypted_data, dict):
                     chat = decrypted_data.get("chat")
                     break
             except Exception as e:
-                print(f"Error during decryption: {e}")
+                logger.error(f"Error during decryption: {e}")
                 continue
 
-        if not chat or not is_valid_message(chat, "chat_segment"):
-            print("Invalid or missing chat segment")
+        if not chat:
+            logger.warning("Invalid or missing chat segment")
+            return
+
+        # Ensure 'participants' and 'message' are present and correctly formatted
+        if not isinstance(chat.get("participants"), list) or not isinstance(chat.get("message"), str):
+            logger.warning("Invalid chat segment structure")
+            return
+
+        if not is_valid_message(chat, "chat_segment"):
+            logger.warning("Invalid or missing chat segment")
             return
 
         sender_id = chat["participants"][0]

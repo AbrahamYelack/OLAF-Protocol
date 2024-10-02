@@ -9,6 +9,7 @@ while others focus on message formatting for transmission.
 import base64
 import json
 import hashlib
+import uuid
 from crypto_utils import sign_data
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
@@ -110,21 +111,21 @@ def validate_signature(signature, data, counter, public_keys):
 
 def make_signed_data_msg(msg_data, counter, private_key):
     """
-    Creates a signed data message in JSON format.
-
-    This method ensures that each message sent is digitally signed and
-    includes a counter to prevent replay attacks.
+    Creates a signed data message in JSON format with a unique ID.
 
     Args:
         msg_data (dict): The data to include in the message.
         counter (str): A counter value to include in the message.
+        private_key: The client's private key object.
 
     Returns:
         str: A JSON-formatted signed data message.
     """
     signature = create_signature(msg_data, counter, private_key)
+    msg_id = str(uuid.uuid4())  # Generate a unique message ID
     msg = {
         "type": "signed_data",
+        "id": msg_id,  # Add the unique ID
         "data": msg_data,
         "counter": counter,
         "signature": signature,

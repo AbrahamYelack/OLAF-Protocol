@@ -42,6 +42,9 @@ class Client:
             host (str): The server host.
             port (int): The server port.
         """
+
+        self.processed_message_ids = set()
+
         self.host = host
         self.port = port
 
