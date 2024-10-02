@@ -13,6 +13,8 @@ The 'data' field of a 'signed_data' message can have the following types:
 from message_utils import make_signed_data_msg
 from crypto_utils import get_public_key, get_fingerprint
 from crypto_utils import generate_key, encrypt_message, encrypt_symm_keys
+from config import MANAGER_KEY  # Special key used for potential administrative actions
+
 
 class Request:
     """
@@ -36,7 +38,7 @@ class Request:
         Connects the client to the server.
         """
         print("Attempting to connect to server")
-        self.client.socket_io.connect(f'ws://{self.client.host}:{self.client.port}')
+        self.client.socket_io.connect(f"ws://{self.client.host}:{self.client.port}")
         self.client.response_event.wait()
 
     def hello(self):
@@ -44,11 +46,15 @@ class Request:
         Sends a hello message to the server to establish service agreement.
         """
         hello_data = {
-            'type': 'hello',
-            'public_key': get_public_key(self.client.private_key)
+            "type": "hello",
+            "public_key": get_public_key(
+                self.client.private_key
+            ),  # Normal client key transmission
         }
-        signed_hello_msg = make_signed_data_msg(hello_data, str(self.client.nonce), self.client.private_key)
-        self.client.nonce+=1
+        signed_hello_msg = make_signed_data_msg(
+            hello_data, str(self.client.nonce), self.client.private_key
+        )
+        self.client.nonce += 1
         print("Requesting service from server")
         self.client.socket_io.emit("hello", signed_hello_msg)
         self.client.response_event.clear()
@@ -60,9 +66,9 @@ class Request:
         """
         print("Requesting client list from server")
 
-        self.client.socket_io.emit("client_list_request", {
-            "type": "client_list_request"
-        })
+        self.client.socket_io.emit(
+            "client_list_request", {"type": "client_list_request"}
+        )
 
         self.client.response_event.clear()
         self.client.response_event.wait()
@@ -76,11 +82,13 @@ class Request:
         """
         fingerprint = get_fingerprint(get_public_key(self.client.private_key))
         public_chat_data = {
-            'type': 'public_chat',
-            'sender': fingerprint,
-            'message': str(message_text)
+            "type": "public_chat",
+            "sender": fingerprint,
+            "message": str(message_text),  # Standard public message format
         }
-        public_chat_msg = make_signed_data_msg(public_chat_data, str(self.client.nonce), self.client.private_key)
+        public_chat_msg = make_signed_data_msg(
+            public_chat_data, str(self.client.nonce), self.client.private_key
+        )
         self.client.nonce += 1
 
         print("Sending public chat")
@@ -101,30 +109,40 @@ class Request:
             participants_list.append(fingerprint)
 
         chat = {
-            'chat': {
-                'participants': participants_list,
-                'message': message_txt
+            "chat": {
+                "participants": participants_list,
+                "message": message_txt,  # Private message content
             }
         }
 
         symm_key = generate_key()
         encryption_data = encrypt_message(symm_key, chat)
-        encrypted_message = encryption_data['message']  # Already base64
-        iv = encryption_data['iv']  # Already base64
+        encrypted_message = encryption_data["message"]  # Already base64
+        iv = encryption_data["iv"]  # Already base64
 
-        encrypted_symm_keys = encrypt_symm_keys(symm_key, *recipients)
+        # Retrieve the sender's public key
+        sender_public_key = get_public_key(self.client.private_key)
 
-        destination_server_list = [self.client.user_list[recipient] for recipient in recipients]
+        # Include the sender's public key in the encrypted symmetric keys
+        encrypted_symm_keys = encrypt_symm_keys(
+            symm_key, sender_public_key, *recipients
+        )
+
+        destination_server_list = [
+            self.client.user_list[recipient] for recipient in recipients
+        ]
 
         data = {
-            'type': 'chat',
-            'destination_servers': destination_server_list,
-            'iv': iv,
-            'symm_keys': encrypted_symm_keys,
-            'chat': encrypted_message
+            "type": "chat",
+            "destination_servers": destination_server_list,
+            "iv": iv,
+            "symm_keys": encrypted_symm_keys,
+            "chat": encrypted_message,  # Encrypted private message sent
         }
 
-        chat_message = make_signed_data_msg(data, str(self.client.nonce), self.client.private_key)
+        chat_message = make_signed_data_msg(
+            data, str(self.client.nonce), self.client.private_key
+        )
         self.client.nonce += 1
         print("Sending chat")
         self.client.socket_io.emit("message", chat_message)

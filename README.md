@@ -1,9 +1,3 @@
-# Contact Information
-Abraham Yelack (a1804620) - abrahamyelack@gmail.com
-Jack Scholten (a1826009) - jack.scholten@hotmail.com
-Julian Lovell (a1829617) - jlovell108@gmail.com 
-Tom Materne (a1825150) - a1825150@adelaide.edu.au
-
 # Advanced Secure Protocol Design
 ## Quick Links
 [Main Assignment Page](https://myuni.adelaide.edu.au/courses/95573/assignments/397468)  
@@ -32,12 +26,4 @@ Tom Materne (a1825150) - a1825150@adelaide.edu.au
 `crypto_utils.py`: Utility functions for handling encryption and key management  
 `message.py`: Functions for constructing and validating messages  
 `OLAF_Reference.md`: Reference documentation for the protocol everyone is going to use  
-
-## Groupwork
-Try to work in your own branches and use pull requests so we can manage everything nicely, and keep up nice documentation so its as straightforward as possible for us to all work on.
-
-## OLAF Protocol Reference
-The project is based on the OLAF/Neighbourhood protocol made by those sweats.  
-Review the protocol documentation on their OLAF GitHub repository from the link above.
-
 
