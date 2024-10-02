@@ -13,7 +13,12 @@ import base64
 import logging
 from collections import namedtuple
 from message_utils import is_valid_message, process_data, validate_signature
-from crypto_utils import decrypt_symm_key, decrypt_message, get_fingerprint, get_public_key
+from crypto_utils import (
+    decrypt_symm_key,
+    decrypt_message,
+    get_fingerprint,
+    get_public_key,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -112,7 +117,9 @@ class Event:
             msg.get("counter"),
             list(self.client.user_list.keys()),
         ):
-            logger.warning("Received a message with an invalid signature, dropping message")
+            logger.warning(
+                "Received a message with an invalid signature, dropping message"
+            )
             return
 
         counter = int(msg.get("counter"))
@@ -186,7 +193,9 @@ class Event:
             return
 
         # Ensure 'participants' and 'message' are present and correctly formatted
-        if not isinstance(chat.get("participants"), list) or not isinstance(chat.get("message"), str):
+        if not isinstance(chat.get("participants"), list) or not isinstance(
+            chat.get("message"), str
+        ):
             logger.warning("Invalid chat segment structure")
             return
 
