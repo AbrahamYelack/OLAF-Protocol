@@ -20,7 +20,7 @@ Welcome to the **OLAF-Neighbourhood Protocol Guide**. This document will describ
 
 2. **Install Dependencies**:
     ```bash
-    pip install -r requirements.txt
+    pip install -r documents/requirements.txt
     ```
 
 ## Running the Servers and Clients
@@ -28,7 +28,7 @@ Welcome to the **OLAF-Neighbourhood Protocol Guide**. This document will describ
 #### Modifying the server list
 
 An important step in the setup process is to ensure the server_list variable
-in the Server.py file is updated to contain the ip addresses (in format "<host>:<port>")
+in the `server.py` file is updated to contain the ip addresses (in format "<host>:<port>")
 of the servers you wish to participate in the neighbourhood communication. In 
 reality this will be determined in the future by the creation of a verified and
 agreed server list. However, for local testing purposes you will have to modify this
@@ -37,7 +37,7 @@ yourself manually.
 
 #### Launch the Server(s)
 
-To simulate messaging between clients you must first launch Server.py before
+To simulate messaging between clients you must first launch `server.py` before
 the client is launched. Clients can share a home server or clients can have different
 servers. To launch the server run the following command from the OLAF-Protocol directory, where <HOST> and <PORT> are placeholders for the host and port you 
 wish the server to operate on.
