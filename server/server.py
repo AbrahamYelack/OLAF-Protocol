@@ -44,9 +44,9 @@ class Server:
         client_list: List of connected clients.
     """
 
-    server_list = ["localhost:4769", "localhost:4768", "localhost:4767"]
+    server_list = ["127.0.0.1:4567", "127.0.0.1:4569", "127.0.0.1:4571"]
 
-    def __init__(self, host, port):
+    def __init__(self, port):
         """Initializes the Server with the given host and port.
 
         Args:
@@ -64,7 +64,7 @@ class Server:
         self.user_list = {}
         self.client_list = {}
 
-        self.host = host
+        self.host = ServerEvent.LOOP_BACK_ADDRESS
         self.port = port
         self.event_handler = ServerEvent(self)
 
@@ -112,13 +112,13 @@ class Server:
 
         # Connect to each listed server
         for server_ip in self.server_list:
+            if server_ip == f"{self.host}:{self.port}":
+                continue
             try:
                 client_socket = self.create_client_socket()
                 ip, port = server_ip.split(":")
                 port = int(port)
-                if port == self.port:
-                    continue  # Skip connecting to self
-                logger.info(f"Attempting to connect to {server_ip}")
+                logger.info(f"Attempting to connect to neighbour server: {server_ip}")
                 url = f"ws://{ip}:{port}"
                 client_socket.connect(url)
                 self.connected_servers[server_ip] = client_socket
@@ -132,7 +132,7 @@ class Server:
                 else:
                     # If regex doesn't match, use a generic message
                     concise_error = "Connection failed."
-                logger.error(f"Could not connect to server at {server_ip}: {concise_error}")
+                logger.info(f"Could not connect to neighbour server at {server_ip}: {concise_error}")
                 failed_connections.append(server_ip)
 
         # Summary of connection attempts
@@ -196,11 +196,9 @@ class Server:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, required=True, help="Hostname")
     parser.add_argument("--port", type=int, required=True, help="Port")
     args = parser.parse_args()
-    HOST = args.host
     PORT = args.port
-    server = Server(HOST, PORT)
+    server = Server(PORT)
     server.connect_to_servers()
     server.run()

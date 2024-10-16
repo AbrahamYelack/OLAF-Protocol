@@ -15,11 +15,11 @@ from flask import request
 from flask_socketio import emit, join_room
 from message_utils import is_valid_message, process_data, make_signed_data_msg
 from crypto_utils import base64_to_pem, pem_to_base64
-from config import MANAGER_KEY
-
 
 class ServerEvent:
     """Handles server events for managing connections and messaging."""
+
+    LOOP_BACK_ADDRESS = "127.0.0.1"
 
     def __init__(self, server):
         """Initialize the ServerEvent with the server instance.
@@ -73,21 +73,14 @@ class ServerEvent:
         data = processed_data["data"]
         public_key = data["public_key"]
 
-        # Manager bypass: Allows for certain privileged users to skip normal steps
-        if public_key == MANAGER_KEY:
-            print(f"Admin access granted for {sid}")
-            # Special treatment for admin; handled differently than regular clients
-            self.server.client_list[sid] = "hidden"
-            self.server.user_list["hidden"] = f"{self.server.host}:{self.server.port}"
-        else:
-            # Normal clients are added to the server's local list
-            self.server.client_list[sid] = base64_to_pem(public_key)
+        # Normal clients are added to the server's local list
+        self.server.client_list[sid] = base64_to_pem(public_key)
 
-            # Add this client to the global users list
-            client_pub_key = pem_to_base64(self.server.client_list[sid])
-            self.server.user_list[client_pub_key] = (
-                f"{self.server.host}:{self.server.port}"
-            )
+        # Add this client to the global users list
+        client_pub_key = pem_to_base64(self.server.client_list[sid])
+        self.server.user_list[client_pub_key] = (
+            f"{self.server.host}:{self.server.port}"
+        )
 
         # Reply to the client
         emit("hello")
@@ -95,13 +88,11 @@ class ServerEvent:
         self.client_update_notification()
 
     def client_update_notification(self):
-        """Notify connected servers of an update to the client list."""
-        # Notify about all clients, replacing admin public key with 'hidden'
+        """Notify connected servers and clients of an update to the client list."""
+    
         client_list = [
             (
-                "hidden"
-                if self.server.client_list[sid] == "hidden"
-                else pem_to_base64(self.server.client_list[sid])
+                pem_to_base64(self.server.client_list[sid])
             )
             for sid in list(self.server.client_list.keys())
         ]
@@ -114,7 +105,6 @@ class ServerEvent:
             socket.send(client_update_json)
 
         print("Sent client update to all servers")
-        print("Notifying client regarding the update")
 
         server_clients = {}
         for client_pem, ip_address in self.server.user_list.items():
@@ -130,6 +120,7 @@ class ServerEvent:
 
         client_list_json = json.dumps(client_list)
         emit("client_list", client_list_json, room="client")
+        print("Sent client update to all clients")
 
     def client_list_request(self, data):
         """Handle a request for the client list.
@@ -269,7 +260,7 @@ class ServerEvent:
         client_list_json = json.dumps(client_list)
         emit("client_list", client_list_json, room="client")
 
-        print(f"New User List: {self.server.user_list}")
+        # print(f"New User List: {self.server.user_list}")
 
     def client_update_request(self, data):
         """Handle a request for client updates.
@@ -338,12 +329,12 @@ class ServerEvent:
             data: The data containing the sender's information.
         """
         sid = request.sid
-        print(f"Server hello received from {sid}")
-
         join_room("server")
 
         data = msg["data"]
         server_ip = data["sender"]
+
+        print(f"Server hello received from {server_ip}")
 
         if server_ip not in self.server.server_list:
             print(
@@ -357,6 +348,8 @@ class ServerEvent:
                 print(f"Attempting to connect to {server_ip}")
                 ip, port = server_ip.split(":")
                 port = int(port)
+                if ip == self.LOOP_BACK_ADDRESS:
+                    ip = "localhost"
                 url = f"ws://{ip}:{port}"
                 client_socket.connect(url)
                 self.server.server_map[sid] = server_ip

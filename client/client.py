@@ -47,7 +47,7 @@ class Client:
 
         # Private key of the client (str-base64)
         self.private_key = generate_private_key()
-        # None/counter for tracking messages, including secure communication sequences
+        # Nonce/counter for tracking messages, including secure communication sequences
         self.nonce = 1
         # Map of public_key(str) to server_ip(str)
         self.user_list = {}
@@ -103,6 +103,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     SERVER_HOST = args.host
+    if SERVER_HOST == "localhost":
+        SERVER_HOST = "127.0.0.1"
+        
     SERVER_PORT = args.port
     client = Client(SERVER_HOST, SERVER_PORT)
     client.initialise()

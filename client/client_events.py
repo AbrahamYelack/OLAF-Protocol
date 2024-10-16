@@ -69,6 +69,7 @@ class Event:
 
         server_list = data.get("servers")
         if server_list:
+            self.client.user_list.clear()
             for server in server_list:
                 for client_public_key in server.get("clients", []):
                     self.client.user_list[client_public_key] = server["address"]

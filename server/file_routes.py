@@ -13,7 +13,6 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-
 # Helper function to generate a unique filename
 def generate_unique_filename(filename):
     unique_id = uuid.uuid4().hex

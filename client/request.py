@@ -13,8 +13,6 @@ The 'data' field of a 'signed_data' message can have the following types:
 from message_utils import make_signed_data_msg
 from crypto_utils import get_public_key, get_fingerprint
 from crypto_utils import generate_key, encrypt_message, encrypt_symm_keys
-from config import MANAGER_KEY  # Special key used for potential administrative actions
-
 
 class Request:
     """
