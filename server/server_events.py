@@ -351,7 +351,7 @@ class ServerEvent:
                 if ip == self.LOOP_BACK_ADDRESS:
                     ip = "localhost"
                 url = f"ws://{ip}:{port}"
-                client_socket.connect(url)
+                client_socket.connect(url, transports=['websocket'])
                 self.server.server_map[sid] = server_ip
                 self.server.connected_servers[server_ip] = client_socket
                 # Send hello message

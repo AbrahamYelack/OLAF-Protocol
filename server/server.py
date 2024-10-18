@@ -44,7 +44,7 @@ class Server:
         client_list: List of connected clients.
     """
 
-    server_list = ["127.0.0.1:4567", "127.0.0.1:4569", "127.0.0.1:4571"]
+    server_list = ["127.0.0.1:4567", "127.0.0.1:9002"]
 
     def __init__(self, port):
         """Initializes the Server with the given host and port.
@@ -120,12 +120,13 @@ class Server:
                 port = int(port)
                 logger.info(f"Attempting to connect to neighbour server: {server_ip}")
                 url = f"ws://{ip}:{port}"
-                client_socket.connect(url)
+                client_socket.connect(url, transports=['websocket'])
                 self.connected_servers[server_ip] = client_socket
                 successful_connections.append(server_ip)
             except (ConnectionErrorSocketIO, SocketIOError) as e:
                 error_msg = str(e)
                 # Extract the most relevant part of the error message using regex
+                print(error_msg)
                 match = re.search(r'\[WinError \d+\] (.+)', error_msg)
                 if match:
                     concise_error = match.group(1)

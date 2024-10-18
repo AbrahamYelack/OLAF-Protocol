@@ -36,8 +36,12 @@ class Request:
         Connects the client to the server.
         """
         print("Attempting to connect to server")
-        self.client.socket_io.connect(f"ws://{self.client.host}:{self.client.port}")
-        self.client.response_event.wait()
+
+        try:
+            self.client.socket_io.connect(f"ws://{self.client.host}:{self.client.port}", transports=['websocket'])
+            self.client.response_event.wait()
+        except Exception as e:
+            print(f"Error: {e}")
 
     def hello(self):
         """
