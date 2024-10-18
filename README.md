@@ -19,11 +19,3 @@
 **Week 10**: Conduct code reviews of three other groups' projects using both manual and automated code review techniques. Provide constructive feedback on the vulnerabilities found in peer reviews.  
 **Week 11**: Submit a reflective commentary discussing the protocol standards, implementation challenges, thoughts on the embedded backdoors, and their detection difficulty. Include in your submission the backdoor free, and your backdoored code.  
 **Week 12**: Participate in a friendly, ethical hackathon to test all chat systems for vulnerabilities and demonstrate proof of concept attacks in a VM environment.  
-
-## Project Structure
-`client.py`: Client side logic for connecting to the server and sending/recieving messages  
-`server.py`: Server side logic for managing connections, messages and network state  
-`crypto_utils.py`: Utility functions for handling encryption and key management  
-`message.py`: Functions for constructing and validating messages  
-`OLAF_Reference.md`: Reference documentation for the protocol everyone is going to use  
-
